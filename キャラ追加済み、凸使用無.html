@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>東方生存郷 ～ Border of Survivors</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #05050a;
+            color: #fff;
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            touch-action: none;
+        }
+        
+        .canvas-container {
+            position: relative;
+            display: none;
+            width: 100vw;
+            height: 100vh;
+            max-width: 960px;
+            max-height: 580px;
+            box-sizing: border-box;
+        }
+
+        @media (max-aspect-ratio: 1/1) {
+            .canvas-container {
+                max-width: 100vw;
+                max-height: 100vh;
+                aspect-ratio: 9 / 16;
+                width: 100vw;
+                height: auto;
+            }
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            border: 2px solid #ff4757;
+            background-color: #0b0c10;
+            box-sizing: border-box;
+        }
+
+        /* 📊 メインメニュー：横幅を広げて、要素を収まりやすく */
+        .menu-window {
+            background: rgba(15, 15, 25, 0.96);
+            border: 3px solid #ff4757;
+            padding: 20px;
+            border-radius: 24px;
+            text-align: center;
+            max-width: 800px;
+            width: 95%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+            z-index: 20;
+            max-height: 95vh;
+            overflow-y: auto;
+        }
+
+        /* 📦 2×2のグリッド配置にして縦長感を解消 */
+        .menu-layout {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+            text-align: left;
+        }
+
+        .modal-layer {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(5, 5, 10, 0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 40;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(10, 10, 20, 0.97);
+            color: #fff;
+            border: 4px solid #ff4757;
+            padding: 25px;
+            border-radius: 20px;
+            text-align: center;
+            width: 85%;
+            max-width: 360px;
+            z-index: 30;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+        }
+        .btn {
+            background: #1e1e30;
+            color: #ff4757;
+            border: 2px solid #ff4757;
+            padding: 12px 24px;
+            margin: 6px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: bold;
+            border-radius: 12px;
+            transition: all 0.2s;
+        }
+        .btn:disabled { border-color: #444; color: #666; background: #111; cursor: not-allowed; }
+        .grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 10px 0; max-height: 60vh; overflow-y: auto; padding-right: 5px; }
+        
+        /* キャラ選択用のカード */
+        .card { 
+            border: 2px solid #2f3542; 
+            padding: 10px; 
+            background: #11121a; 
+            cursor: pointer; 
+            border-radius: 16px;
+            text-align: center;
+            position: relative;
+        }
+        .card.selected { border-color: #ff4757; background: #222536; box-shadow: 0 0 10px rgba(255,71,87,0.3); }
+        .card.locked { opacity: 0.4; cursor: not-allowed; background: #08080f; }
+        .lock-badge { position: absolute; top: 5px; right: 10px; color: #ff4757; font-size: 11px; font-weight: bold; }
+        
+        .p-text { color: #ffcc00; font-weight: bold; font-size: 20px; }
+        #controls { margin-top: 10px; color: #a4b0be; font-size: 11px; text-align: center; padding: 0 10px; }
+        
+        #touch-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 5;
+        }
+
+        #pause-btn {
+            position: absolute;
+            top: 45px; right: 20px;
+            width: 44px; height: 44px;
+            background: rgba(15, 15, 25, 0.85);
+            border: 2px solid #ff4757;
+            color: #fff;
+            border-radius: 50%;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 15;
+        }
+
+        #bomb-btn {
+            position: absolute;
+            bottom: 30px; right: 20px;
+            width: 70px; height: 70px;
+            background: radial-gradient(#ff4757, #cc2e43);
+            border: 3px solid #fff;
+            color: #fff;
+            border-radius: 50%;
+            font-size: 13px;
+            font-weight: bold;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 15;
+            box-shadow: 0 4px 15px rgba(255,71,87,0.5);
+            text-shadow: 1px 1px 2px #000;
+        }
+        #bomb-btn:disabled { background: #2f3542; border-color: #747d8c; color: #a4b0be; box-shadow: none; }
+
+        .volume-container {
+            background:#11121a; padding:10px; border-radius:14px; border:1px solid #2f3542;
+        }
+        .volume-row {
+            display: flex; align-items: center; justify-content: space-between; margin: 4px 0; font-size: 13px;
+        }
+        .volume-row input[type="range"] {
+            width: 55%; accent-color: #ff4757; cursor: pointer;
+        }
+        .volume-val { width: 35px; text-align: right; color: #ffcc00; font-weight: bold; }
+
+        /* メインメニュー内の各セクション共通デザイン */
+        .menu-section {
+            background: #11121a;
+            border: 2px solid #2f3542;
+            padding: 12px;
+            border-radius: 16px;
+            text-align: left;
+            box-sizing: border-box;
+        }
+        .section-title {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #ffcc00;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="mainMenu" class="menu-window">
+        <h1 style="color:#ff4757; margin: 0; font-size: 24px; letter-spacing: 1px;">☯️ 東方生存郷 ☯️</h1>
+        <p style="font-size: 13px; color: #a4b0be; margin: 2px 0 10px 0; font-style: italic;">~ Border of Survivors</p>
+        <p style="margin: 5px 0; font-size: 16px;">所持POINT: <span id="menuGold" class="p-text">0</span> 🔴</p>
+        
+        <div class="menu-layout">
+            
+            <div class="menu-section" style="border-color: #ffcc00; background: rgba(255,204,0,0.03); display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <h4 class="section-title">⛩️ 博麗神社 賽銭箱ガチャ</h4>
+                    <p style="font-size: 11px; color: #a4b0be; margin: 0 0 8px 0;">新しい仲間を一定確率で解放します。</p>
+                </div>
+                <div>
+                    <button class="btn" id="btn-gacha" style="background:#ffcc00; color:#000; border:none; width:100%; margin:4px 0; padding: 10px 0;" onclick="drawGacha()">ガチャを引く (200🔴)</button>
+                    <div id="gacha-result" style="font-size:11px; margin-top:3px; font-weight:bold; height:15px; text-align:center; color:#2ed573;"></div>
+                </div>
+            </div>
+
+            <div class="menu-section" style="display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <h4 class="section-title" style="color: #74b9ff;">👥 出撃キャラクター</h4>
+                    <p style="font-size: 11px; color: #a4b0be; margin: 0 0 8px 0;">現在選択中の出撃キャラクターです。</p>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(30,30,48,0.5); padding: 8px 12px; border-radius: 12px; border: 1px solid #2f3542;">
+                    <div id="selected-char-name" style="font-size: 16px; font-weight: bold; color: #ff4757;">博麗 霊夢</div>
+                    <button class="btn" style="padding: 8px 14px; font-size: 12px; margin: 0; border-color:#74b9ff; color:#74b9ff;" onclick="toggleCharModal(true)">仲間を募る ⛩️</button>
+                </div>
+            </div>
+
+            <div class="menu-section">
+                <h4 class="section-title" style="color: #2ed573;">🔮 能力解放（永続強化）</h4>
+                <div style="font-size: 12px; display: flex; flex-direction: column; gap: 6px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>⚔️ 攻撃力 Lv.<span id="up-atk-lv">0</span></span>
+                        <button class="btn" style="padding:5px 10px; font-size:11px; margin:0;" id="btn-up-atk" onclick="buyPermanent('atk')">消費: <span id="cost-atk">50</span>🔴</button>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>❤️ 体力倍率 Lv.<span id="up-hp-lv">0</span></span>
+                        <button class="btn" style="padding:5px 10px; font-size:11px; margin:0;" id="btn-up-hp" onclick="buyPermanent('hp')">消費: <span id="cost-hp">50</span>🔴</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="menu-section" style="display: flex; flex-direction: column; justify-content: center;">
+                <h4 class="section-title" style="color: #a4b0be; margin-bottom: 12px;">⚙️ 音量設定</h4>
+                <div class="volume-container" style="border: none; padding: 0;">
+                    <div class="volume-row">
+                        <span>BGM:</span>
+                        <input type="range" id="menu-slider-bgm" min="0" max="100" value="70" oninput="handleVolumeSlider('bgm', this.value)">
+                        <span id="menu-val-bgm" class="volume-val">70%</span>
+                    </div>
+                    <div class="volume-row">
+                        <span>SE:</span>
+                        <input type="range" id="menu-slider-se" min="0" max="100" value="70" oninput="handleVolumeSlider('se', this.value)">
+                        <span id="menu-val-se" class="volume-val">70%</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <button class="btn" style="font-size:18px; margin-top:20px; width:100%; background:#ff4757; color:#fff; box-shadow: 0 4px 15px rgba(255,71,87,0.3);" onclick="startGame()">異変解決へ向かう</button>
+    </div>
+
+    <div id="charModal" class="modal-layer">
+        <div class="menu-window" style="border-color: #74b9ff; max-width: 420px;">
+            <h3 style="color:#74b9ff; margin-top:0;">⛩️ 参戦キャラクター一覧</h3>
+            <div class="grid">
+                <div class="card selected" id="char-reimu" onclick="selectChar('reimu')">
+                    <h4 style="color:#ff4757; margin:2px 0;">博麗 霊夢</h4>
+                    <p style="font-size:11px; color:#a4b0be; margin:2px 0;">追尾札 / 💥夢想封印(全体攻撃)</p>
+                </div>
+                <div class="card locked" id="char-marisa" onclick="selectChar('marisa')">
+                    <span class="lock-badge" id="badge-marisa">🔒 未解放</span>
+                    <h4 style="color:#eccc68; margin:2px 0;">霧雨 魔理沙</h4>
+                    <p style="font-size:11px; color:#a4b0be; margin:2px 0;">星弾幕 / 💥マスタースパーク(極太レーザー)</p>
+                </div>
+                <div class="card locked" id="char-youmu" onclick="selectChar('youmu')">
+                    <span class="lock-badge" id="badge-youmu">🔒 未解放</span>
+                    <h4 style="color:#2ed573; margin:2px 0;">魂魄 妖夢</h4>
+                    <p style="font-size:11px; color:#a4b0be; margin:2px 0;">旋回剣気 / 💥待宵反射星(無敵巨大化)</p>
+                </div>
+                <div class="card locked" id="char-sakuya" onclick="selectChar('sakuya')">
+                    <span class="lock-badge" id="badge-sakuya">🔒 未解放</span>
+                    <h4 style="color:#74b9ff; margin:2px 0;">十六夜 咲夜</h4>
+                    <p style="font-size:11px; color:#a4b0be; margin:2px 0;">高速投擲ナイフ / 💥ザ・ワールド(5秒時間停止)</p>
+                </div>
+                <div class="card locked" id="char-reisen" onclick="selectChar('reisen')">
+                    <span class="lock-badge" id="badge-reisen">🔒 未解放</span>
+                    <h4 style="color:#a55eea; margin:2px 0;">鈴仙・優曇華院</h4>
+                    <p style="font-size:11px; color:#a4b0be; margin:2px 0;">前後貫通レーザー / 💥赤眼催眠(周囲超爆発)</p>
+                </div>
+                <!-- 👁️ 五条悟の追加 -->
+                <div class="card locked" id="char-gojou" onclick="selectChar('gojou')">
+                    <span class="lock-badge" id="badge-gojou">🔒 未解放</span>
+                    <h4 style="color:#ffffff; text-shadow:0 0 5px #74b9ff; margin:2px 0;">五条 悟</h4>
+                    <p style="font-size:11px; color:#a4b0be; margin:2px 0;">術式順転「蒼」 / 💥領域展開「無量空処」(10秒完全時間停止)</p>
+                </div>
+                <!-- 🔮 ロキシーの追加 -->
+                <div class="card locked" id="char-roxy" onclick="selectChar('roxy')">
+                    <span class="lock-badge" id="badge-roxy">🔒 未解放</span>
+                    <h4 style="color:#54a0ff; margin:2px 0;">ロキシー・ミグルディア</h4>
+                    <p style="font-size:11px; color:#a4b0be; margin:2px 0;">絶対零度(範囲氷結) / 💥キュムロニンバス(画面全体雷雨爆撃)</p>
+                </div>
+            </div>
+            <button class="btn" style="background:#74b9ff; color:#000; border:none; width:100%; margin-top:10px;" onclick="toggleCharModal(false)">決定して戻る</button>
+        </div>
+    </div>
+
+    <div id="gameContainer" class="canvas-container">
+        <canvas id="gameCanvas" width="960" height="580"></canvas>
+        <div id="touch-overlay"></div>
+        <div id="pause-btn" onclick="triggerPause()">⏸️</div>
+        <button id="bomb-btn" onclick="activateSpellCard()"><div>スペカ</div><div id="bomb-cooldown" style="font-size:10px;">READY</div></button>
+    </div>
+    
+    <div id="ui-layer">
+        <h2 id="ui-title" style="color:#ff4757; margin-top:0; font-size: 20px;">能力開花</h2>
+        <div id="ui-options" style="display:flex; flex-direction:column; width:100%;"></div>
+    </div>
+
+    <div id="controls">
+        PC: WASD移動 & Spaceでスペカ & [Esc]で一時停止 | スマホ: ドラッグ移動 & 右下ボタンでスペカ
+    </div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const gameContainer = document.getElementById('gameContainer');
+const uiLayer = document.getElementById('ui-layer');
+const uiTitle = document.getElementById('ui-title');
+const uiOptions = document.getElementById('ui-options');
+const touchOverlay = document.getElementById('touch-overlay');
+const bombBtn = document.getElementById('bomb-btn');
+const bombCdText = document.getElementById('bomb-cooldown');
+const charModal = document.getElementById('charModal');
+
+const charNamesJp = { 
+    reimu: '博麗 霊夢', 
+    marisa: '霧雨 魔理沙', 
+    youmu: '魂魄 妖夢', 
+    sakuya: '十六夜 咲夜', 
+    reisen: '鈴仙・優曇華院',
+    gojou: '五条 悟',
+    roxy: 'ロキシー'
+};
+
+const charImages = { 
+    reimu: new Image(), 
+    marisa: new Image(), 
+    youmu: new Image(), 
+    sakuya: new Image(), 
+    reisen: new Image(),
+    gojou: new Image(),
+    roxy: new Image()
+};
+charImages.reimu.src = 'reimu.png'; 
+charImages.marisa.src = 'marisa.png'; 
+charImages.youmu.src = 'youmu.png'; 
+charImages.sakuya.src = 'sakuya.png'; 
+charImages.reisen.src = 'reisen.png';
+charImages.gojou.src = 'gojou.png'; // 五条悟画像指定
+charImages.roxy.src = 'roxy.png';   // ロキシー画像指定
+
+let imageLoaded = { reimu: false, marisa: false, youmu: false, sakuya: false, reisen: false, gojou: false, roxy: false };
+Object.keys(charImages).forEach(k => charImages[k].onload = () => imageLoaded[k] = true);
+
+// セーブデータ初期値
+let saveData = { gold: 0, upAtk: 0, upHp: 0, unlockedChars: ['reimu'], volBgm: 0.7, volSE: 0.7 };
+
+// --- 🎧 オーディオエンジン ---
+let audioCtx = null;
+let bgmAudioElement = null;
+let bgmSourceNode = null;
+let bgmGainNode = null;
+let currentBgmPath = "";
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        bgmAudioElement = new Audio();
+        bgmAudioElement.loop = true;
+        bgmAudioElement.crossOrigin = "anonymous";
+        
+        bgmSourceNode = audioCtx.createMediaElementSource(bgmAudioElement);
+        bgmGainNode = audioCtx.createGain();
+        bgmGainNode.gain.setValueAtTime(saveData.volBgm, audioCtx.currentTime);
+        
+        bgmSourceNode.connect(bgmGainNode);
+        bgmGainNode.connect(audioCtx.destination);
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
+
+function playBgm(filename) {
+    initAudio();
+    if (currentBgmPath === filename) return; 
+    currentBgmPath = filename;
+    
+    bgmAudioElement.src = filename;
+    bgmAudioElement.load();
+    bgmAudioElement.play().catch(e => console.log("BGM Play Error:", e));
+    updateBgmVolume();
+}
+
+function stopBgm() {
+    if (bgmAudioElement) {
+        bgmAudioElement.pause();
+        currentBgmPath = "";
+    }
+}
+
+function updateBgmVolume() {
+    if (bgmGainNode && audioCtx) {
+        bgmGainNode.gain.setValueAtTime(saveData.volBgm, audioCtx.currentTime);
+    }
+}
+
+function handleVolumeSlider(type, val) {
+    let volumeValue = parseFloat(val) / 100;
+    if (type === 'bgm') {
+        saveData.volBgm = volumeValue;
+        updateBgmVolume();
+        document.getElementById('menu-val-bgm').innerText = val + "%";
+        let pauseBgmVal = document.getElementById('pause-val-bgm');
+        if (pauseBgmVal) pauseBgmVal.innerText = val + "%";
+    } else {
+        saveData.volSE = volumeValue;
+        document.getElementById('menu-val-se').innerText = val + "%";
+        let pauseSeVal = document.getElementById('pause-val-se');
+        if (pauseSeVal) pauseSeVal.innerText = val + "%";
+    }
+    saveGame();
+}
+
+function createSynthSE(type) {
+    initAudio();
+    if (!audioCtx || saveData.volSE <= 0) return;
+    const now = audioCtx.currentTime;
+
+    if (type === 'click') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(880, now);
+        gain.gain.setValueAtTime(saveData.volSE * 0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.08);
+    } else if (type === 'shoot') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(1200, now);
+        osc.frequency.exponentialRampToValueAtTime(400, now + 0.04);
+        gain.gain.setValueAtTime(saveData.volSE * 0.04, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.05);
+    } else if (type === 'hit') {
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc1.type = 'square';
+        osc1.frequency.setValueAtTime(2400, now);
+        osc1.frequency.exponentialRampToValueAtTime(800, now + 0.03);
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(1200, now);
+        osc2.frequency.exponentialRampToValueAtTime(300, now + 0.03);
+        gain.gain.setValueAtTime(saveData.volSE * 0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+        osc1.connect(gain); osc2.connect(gain); gain.connect(audioCtx.destination);
+        osc1.start(now); osc2.start(now);
+        osc1.stop(now + 0.04); osc2.stop(now + 0.04);
+    } else if (type === 'levelup') {
+        const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98, 2093.00];
+        const noteDuration = 0.04;
+        notes.forEach((freq, idx) => {
+            const startTime = now + (idx * noteDuration);
+            const osc1 = audioCtx.createOscillator();
+            const osc2 = audioCtx.createOscillator();
+            osc1.type = 'square'; osc2.type = 'square';
+            osc1.frequency.setValueAtTime(freq, startTime);
+            osc2.frequency.setValueAtTime(freq * 1.005, startTime);
+            const gain = audioCtx.createGain();
+            const isLast = (idx === notes.length - 1);
+            const duration = isLast ? 0.4 : noteDuration * 1.5;
+            gain.gain.setValueAtTime(saveData.volSE * 0.25, startTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+            osc1.connect(gain); osc2.connect(gain); gain.connect(audioCtx.destination);
+            osc1.start(startTime); osc1.stop(startTime + duration);
+            osc2.start(startTime); osc2.stop(startTime + duration);
+        });
+    } else if (type === 'get') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(987.77, now);
+        osc.frequency.setValueAtTime(1318.51, now + 0.04);
+        gain.gain.setValueAtTime(saveData.volSE * 0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.12);
+    } else if (type === 'bomb') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.linearRampToValueAtTime(880, now + 0.1);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.4);
+        gain.gain.setValueAtTime(saveData.volSE * 0.3, now);
+        gain.gain.linearRampToValueAtTime(saveData.volSE * 0.3, now + 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.45);
+    } else if (type === 'damage') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(120, now);
+        osc.frequency.linearRampToValueAtTime(30, now + 0.08);
+        gain.gain.setValueAtTime(saveData.volSE * 0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.09);
+    } else if (type === 'gameover') {
+        const dNotes = [392.00, 349.23, 311.13, 246.94];
+        dNotes.forEach((freq, idx) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            const startTime = now + (idx * 0.12);
+            const duration = (idx === dNotes.length - 1) ? 0.6 : 0.15;
+            osc.frequency.setValueAtTime(freq, startTime);
+            gain.gain.setValueAtTime(saveData.volSE * 0.3, startTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(startTime); osc.stop(startTime + duration);
+        });
+    }
+}
+
+function loadGame() {
+    const saved = localStorage.getItem('touhou_survivors_save_v5');
+    if (saved) { try { saveData = Object.assign(saveData, JSON.parse(saved)); } catch(e) {} }
+    if (!saveData.unlockedChars) saveData.unlockedChars = ['reimu'];
+    if (saveData.volBgm === undefined) saveData.volBgm = 0.7;
+    if (saveData.volSE === undefined) saveData.volSE = 0.7;
+    
+    document.getElementById('menu-slider-bgm').value = Math.round(saveData.volBgm * 100);
+    document.getElementById('menu-slider-se').value = Math.round(saveData.volSE * 100);
+    document.getElementById('menu-val-bgm').innerText = Math.round(saveData.volBgm * 100) + "%";
+    document.getElementById('menu-val-se').innerText = Math.round(saveData.volSE * 100) + "%";
+    
+    updateMenuUI();
+}
+
+function saveGame() { localStorage.setItem('touhou_survivors_save_v5', JSON.stringify(saveData)); }
+function getCost(type, currentLv) { return (currentLv + 1) * 50; }
+
+function toggleCharModal(show) { 
+    createSynthSE('click');
+    charModal.style.display = show ? 'flex' : 'none'; 
+}
+
+function updateMenuUI() {
+    document.getElementById('menuGold').innerText = saveData.gold;
+    document.getElementById('up-atk-lv').innerText = saveData.upAtk;
+    document.getElementById('up-hp-lv').innerText = saveData.upHp;
+    document.getElementById('cost-atk').innerText = getCost('atk', saveData.upAtk);
+    document.getElementById('cost-hp').innerText = getCost('hp', saveData.upHp);
+    document.getElementById('btn-up-atk').disabled = saveData.gold < getCost('atk', saveData.upAtk);
+    document.getElementById('btn-up-hp').disabled = saveData.gold < getCost('hp', saveData.upHp);
+    document.getElementById('btn-gacha').disabled = saveData.gold < 200;
+    document.getElementById('selected-char-name').innerText = charNamesJp[selectedCharType];
+
+    ['marisa', 'youmu', 'sakuya', 'reisen', 'gojou', 'roxy'].forEach(c => {
+        if (saveData.unlockedChars.includes(c)) {
+            document.getElementById(`char-${c}`).classList.remove('locked');
+            document.getElementById(`badge-${c}`).innerText = "✓ 解放済";
+            document.getElementById(`badge-${c}`).style.color = "#2ed573";
+        }
+    });
+}
+
+function drawGacha() {
+    if (saveData.gold < 200) return;
+    saveData.gold -= 200;
+    createSynthSE('levelup'); 
+    const pool = ['marisa', 'youmu', 'sakuya', 'reisen', 'gojou', 'roxy'];
+    const picked = pool[Math.floor(Math.random() * pool.length)];
+    const resultDiv = document.getElementById('gacha-result');
+
+    if (saveData.unlockedChars.includes(picked)) {
+        saveData.gold += 100; resultDiv.style.color = "#eccc68"; resultDiv.innerText = `被り：${charNamesJp[picked]} (100🔴返還)`;
+    } else {
+        saveData.unlockedChars.push(picked); resultDiv.style.color = "#2ed573"; resultDiv.innerText = `🎉 新解放：${charNamesJp[picked]}`;
+    }
+    saveGame(); updateMenuUI();
+}
+
+function buyPermanent(type) {
+    let cost = getCost(type, saveData[type === 'atk' ? 'upAtk' : 'upHp']);
+    if (saveData.gold >= cost) {
+        saveData.gold -= cost; if (type === 'atk') saveData.upAtk++; else if (type === 'hp') saveData.upHp++;
+        createSynthSE('get');
+        saveGame(); updateMenuUI();
+    }
+}
+
+let selectedCharType = 'reimu';
+function selectChar(type) {
+    if (!saveData.unlockedChars.includes(type)) return;
+    selectedCharType = type;
+    createSynthSE('click');
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+    document.getElementById(`char-${type}`).classList.add('selected');
+    document.getElementById('selected-char-name').innerText = charNamesJp[type];
+}
+
+// --- ゲームシステム変数 ---
+let gameActive = false, score = 0, level = 1, exp = 0, nextExp = 5, surviveTime = 0, goldEarned = 0;
+const camera = { x: 0, y: 0 };
+let player = {}, bullets = [], enemies = [], gems = [], particles = [], spawnTimer = 0;
+const keys = {};
+
+let spellCooldown = 0, spellActiveTimer = 0, marisaLaserDirection = 1, sakuyaTimeStopActive = false;
+let subWeapons = { garlic: 0, book: 0, thunder: 0 };
+let personalSkillLevel = 0; 
+let thunderTimer = 0;
+let reimuBarrierHp = 0, reimuBarrierMaxHp = 0, reimuBarrierCooldown = 0;
+let sakuyaDollKnives = [];
+let youmuHalfGhost = { x: 0, y: 0, angle: 0, attackCooldown: 0 };
+
+// 五条悟用のシステム変数
+let gojouMugenHp = 0, gojouMugenMaxHp = 0, gojouMugenCooldown = 0;
+
+let touchStart = { x: 0, y: 0 }, touchCurrent = { x: 0, y: 0 }, isTouching = false, touchMoveVector = { x: 0, y: 0 };
+
+window.addEventListener('click', () => {
+    if (!gameActive) {
+        initAudio();
+    }
+});
+
+touchOverlay.addEventListener('touchstart', e => {
+    isTouching = true; const t = e.touches[0]; touchStart.x = t.clientX; touchStart.y = t.clientY; touchCurrent.x = t.clientX; touchCurrent.y = t.clientY;
+});
+touchOverlay.addEventListener('touchmove', e => {
+    if (!isTouching) return; const t = e.touches[0]; touchCurrent.x = t.clientX; touchCurrent.y = t.clientY;
+    let dx = touchCurrent.x - touchStart.x, dy = touchCurrent.y - touchStart.y; let dist = Math.hypot(dx, dy);
+    if (dist > 10) { touchMoveVector.x = dx / dist; touchMoveVector.y = dy / dist; } else { touchMoveVector.x = 0; touchMoveVector.y = 0; }
+});
+touchOverlay.addEventListener('touchend', () => { isTouching = false; touchMoveVector.x = 0; touchMoveVector.y = 0; });
+
+window.addEventListener('keydown', e => {
+    keys[e.key.toLowerCase()] = true;
+    if (e.key === 'Escape' || e.key === 'Esc') {
+        e.preventDefault();
+        if (gameActive) {
+            triggerPause();
+        } else if (uiLayer.style.display === 'flex' && uiTitle.innerText === "戦術一時停止") {
+            createSynthSE('click'); uiLayer.style.display = 'none'; gameActive = true; updateLoop();
+        }
+    }
+    if (e.key === ' ' && gameActive) { e.preventDefault(); activateSpellCard(); }
+});
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+function activateSpellCard() {
+    if (spellCooldown > 0 || !gameActive) return;
+    spellCooldown = 1800; 
+    createSynthSE('bomb'); 
+    
+    if (player.type === 'reimu') {
+        createParticles(player.x, player.y, '#ff4757', 30);
+        enemies.forEach(e => { e.hp -= player.damage * 4; createParticles(e.x, e.y, '#ff4d4d', 5); });
+    } else if (player.type === 'marisa') {
+        spellActiveTimer = 150; marisaLaserDirection = player.lastDirX > 0 ? 1 : -1; 
+    } else if (player.type === 'youmu') {
+        spellActiveTimer = 300; 
+    } else if (player.type === 'sakuya') {
+        spellActiveTimer = 300; sakuyaTimeStopActive = true;
+    } else if (player.type === 'reisen') {
+        spellActiveTimer = 45; createParticles(player.x, player.y, '#a55eea', 50);
+        enemies.forEach(e => { if (Math.hypot(e.x - player.x, e.y - player.y) < 350) { e.hp -= player.damage * 6; createParticles(e.x, e.y, '#fff', 6); } });
+    } else if (player.type === 'gojou') {
+        // 五条悟：領域展開「無量空処」（10秒間=600フレーム、画面全体の敵を完全停止）
+        spellActiveTimer = 600;
+        sakuyaTimeStopActive = true; // 時間停止フラグを兼用
+        createParticles(player.x, player.y, '#74b9ff', 60);
+        enemies.forEach(e => { e.hp -= player.damage * 3; });
+    } else if (player.type === 'roxy') {
+        // ロキシー：キュムロニンバス（広範囲に爆発雷撃）
+        spellActiveTimer = 90;
+        for (let i = 0; i < 25; i++) {
+            setTimeout(() => {
+                if (!gameActive) return;
+                let rx = player.x + (Math.random() - 0.5) * 800;
+                let ry = player.y + (Math.random() - 0.5) * 600;
+                createParticles(rx, ry, '#54a0ff', 12);
+                createParticles(rx, ry, '#eccc68', 8);
+                createSynthSE('bomb');
+                enemies.forEach(e => {
+                    if (Math.hypot(e.x - rx, e.y - ry) < 180) {
+                        e.hp -= player.damage * 2.5;
+                    }
+                });
+            }, i * 60);
+        }
+    }
+}
+
+function triggerPause() {
+    if (!gameActive && uiLayer.style.display === 'flex' && uiTitle.innerText !== "戦術一時停止") return;
+    createSynthSE('click');
+    gameActive = false; 
+    uiTitle.innerText = "戦術一時停止"; 
+    uiOptions.innerHTML = "";
+
+    const volBox = document.createElement('div');
+    volBox.className = 'volume-container';
+    volBox.style.width = '90%';
+    volBox.style.marginBottom = '15px';
+    volBox.innerHTML = `
+        <div class="volume-row">
+            <span>BGM:</span>
+            <input type="range" id="pause-slider-bgm" min="0" max="100" value="${Math.round(saveData.volBgm*100)}" oninput="handleVolumeSlider('bgm', this.value)">
+            <span id="pause-val-bgm" class="volume-val">${Math.round(saveData.volBgm*100)}%</span>
+        </div>
+        <div class="volume-row">
+            <span>SE:</span>
+            <input type="range" id="pause-slider-se" min="0" max="100" value="${Math.round(saveData.volSE*100)}" oninput="handleVolumeSlider('se', this.value)">
+            <span id="pause-val-se" class="volume-val">${Math.round(saveData.volSE*100)}%</span>
+        </div>
+    `;
+    uiOptions.appendChild(volBox);
+
+    const resumeBtn = document.createElement('button'); resumeBtn.className = 'btn'; resumeBtn.innerText = '戦線に復帰 (Esc)';
+    resumeBtn.onclick = () => { createSynthSE('click'); uiLayer.style.display = 'none'; gameActive = true; updateLoop(); };
+    
+    const exitBtn = document.createElement('button'); exitBtn.className = 'btn'; exitBtn.innerText = '里へ退却';
+    exitBtn.onclick = () => { createSynthSE('click'); exitGameToMenu(); };
+    
+    uiOptions.appendChild(resumeBtn); 
+    uiOptions.appendChild(exitBtn); 
+    uiLayer.style.display = 'flex';
+}
+
+function exitGameToMenu() {
+    gameActive = false; uiLayer.style.display = 'none'; gameContainer.style.display = 'none';
+    document.getElementById('mainMenu').style.display = 'block'; 
+    stopBgm();
+    updateMenuUI();
+}
+
+function getUpgradeOptions() {
+    let list = [
+        { name: '🔮 弾幕増幅 (同時発射数 +1)', effect: () => player.multishot += 1 },
+        { name: '⚡ 連射力向上 (攻撃速度 +30%)', effect: () => player.attackSpeed += 0.3 },
+        { name: '💥 霊力限界突破 (与ダメ +8)', effect: () => player.damage += 8 },
+        { name: '🧲 霊気範囲拡大 (吸い込み +70)', effect: () => player.magnetRange += 70 },
+        { name: '💖 御神酒の癒やし (HPを65回復)', effect: () => player.hp = Math.min(player.maxHp, player.hp + 65) },
+        
+        { name: subWeapons.garlic === 0 ? '🧄 習得：妖々夢の怪火' : `🧄 強化：妖々夢の怪火 (Lv.${subWeapons.garlic + 1})`, effect: () => subWeapons.garlic++ },
+        { name: subWeapons.book === 0 ? '📖 習得：魔導書「ラジカルキマイラ」' : `📖 強化：魔導書 (Lv.${subWeapons.book + 1})`, effect: () => subWeapons.book++ },
+        { name: subWeapons.thunder === 0 ? '⚡ 習得：聖喇の雷撃' : `⚡ 強化：聖喇の雷撃 (Lv.${subWeapons.thunder + 1})`, effect: () => subWeapons.thunder++ }
+    ];
+
+    if (personalSkillLevel < 2 && Math.random() < 0.45) {
+        let pNames = {
+            reimu: ['☯️ 習得：博麗の結界 (耐久制バリア＆威力UP)', '☯️ 強化：博麗の結界 (耐久値増加＆再生クール短縮)'],
+            marisa: ['🧹 習得：ミニ八卦炉・暴走 (通常星弾が貫通化)', '🧹 強化：ミニ八卦炉・暴走 (貫通星弾が1.5倍超巨大化)'],
+            youmu: ['🌸 習得：人魂「半分幻の庭師」 (半霊が自動追尾攻撃開始)', '🌸 強化：半霊「半分幻の庭師」 (半霊の追尾戦闘力2倍化)'],
+            sakuya: ['⏳ 習得：殺人ドール (画面跳弾ナイフが永続巡回)', '⏳ 強化：殺人ドール (跳弾ナイフの巡回数が2倍に増加)'],
+            reisen: ['👁️ 習得：幻朧月睨 (狂気波動による全周囲斥力)', '👁️ 強化：幻朧月睨 (錯乱波のダメージと衝撃力が極大化)'],
+            gojou: ['👁️‍🗨️ 習得：無下限呪術・常時展開 (自動防御シールド)', '👁️‍🗨️ 強化：無下限呪術 (シールド耐久値上限が2倍にアップ)'],
+            roxy: ['🧙‍♀️ 習得：魔術短縮詠唱 (基本連射速度が常時+25%)', '🧙‍♀️ 強化：魔術短縮詠唱 (弾幕発射数が追加で+1)']
+        };
+        list.push({
+            name: pNames[player.type][personalSkillLevel],
+            effect: () => {
+                personalSkillLevel++;
+                if (player.type === 'reimu') {
+                    reimuBarrierMaxHp = personalSkillLevel === 1 ? 250 : 600;
+                    reimuBarrierHp = reimuBarrierMaxHp;
+                    reimuBarrierCooldown = 0;
+                }
+                if (player.type === 'sakuya') {
+                    let knifeCount = personalSkillLevel === 1 ? 4 : 8;
+                    sakuyaDollKnives = [];
+                    for(let i=0; i<knifeCount; i++) {
+                        let ang = (Math.PI * 2 / knifeCount) * i;
+                        sakuyaDollKnives.push({ x: player.x, y: player.y, vx: Math.cos(ang)*7, vy: Math.sin(ang)*7 });
+                    }
+                }
+                if (player.type === 'gojou') {
+                    gojouMugenMaxHp = personalSkillLevel === 1 ? 400 : 900;
+                    gojouMugenHp = gojouMugenMaxHp;
+                    gojouMugenCooldown = 0;
+                }
+                if (player.type === 'roxy') {
+                    if (personalSkillLevel === 1) player.attackSpeed += 0.4;
+                    if (personalSkillLevel === 2) player.multishot += 1;
+                }
+            }
+        });
+    }
+    return list.sort(() => 0.5 - Math.random()).slice(0, 3);
+}
+
+function startGame() {
+    createSynthSE('click');
+    document.getElementById('mainMenu').style.display = 'none';
+    gameContainer.style.display = 'block';
+    document.getElementById('gacha-result').innerText = "";
+    playBgm('bgm_game.mp3');
+
+    if (window.innerHeight > window.innerWidth) { canvas.width = 580; canvas.height = 960; } 
+    else { canvas.width = 960; canvas.height = 580; }
+
+    player = { x: canvas.width/2, y: canvas.height/2, size: 32, shootCooldown: 0, multishot: 1, magnetRange: 140, type: selectedCharType, animTimer: 0, lastDirX: 1, isMoving: false };
+
+    if (selectedCharType === 'reimu') { player.maxHp = 100; player.damage = 16; player.speed = 4.3; player.attackSpeed = 1.4; }
+    else if (selectedCharType === 'marisa') { player.maxHp = 85; player.damage = 22; player.speed = 5.2; player.attackSpeed = 1.8; }
+    else if (selectedCharType === 'youmu') { player.maxHp = 120; player.damage = 18; player.speed = 4.6; player.attackSpeed = 1.5; }
+    else if (selectedCharType === 'sakuya') { player.maxHp = 95; player.damage = 15; player.speed = 4.8; player.attackSpeed = 2.2; } 
+    else if (selectedCharType === 'reisen') { player.maxHp = 110; player.damage = 20; player.speed = 4.2; player.attackSpeed = 1.3; }
+    else if (selectedCharType === 'gojou') { player.maxHp = 150; player.damage = 25; player.speed = 4.5; player.attackSpeed = 1.2; } // 五条悟ステータス
+    else if (selectedCharType === 'roxy') { player.maxHp = 90; player.damage = 28; player.speed = 4.0; player.attackSpeed = 1.1; }  // ロキシーステータス
+
+    player.maxHp += (saveData.upHp * 25); player.damage += (saveData.upAtk * 4);
+    player.hp = player.maxHp; score = 0; level = 1; exp = 0; nextExp = 5; surviveTime = 0; goldEarned = 0;
+    bullets = []; enemies = []; gems = []; particles = []; spawnTimer = 0; spellCooldown = 0; spellActiveTimer = 0;
+    sakuyaTimeStopActive = false; subWeapons = { garlic: 0, book: 0, thunder: 0 }; personalSkillLevel = 0; thunderTimer = 0;
+    sakuyaDollKnives = []; youmuHalfGhost = { x: player.x, y: player.y, angle: 0, attackCooldown: 0 };
+    reimuBarrierHp = 0; reimuBarrierMaxHp = 0; reimuBarrierCooldown = 0;
+    gojouMugenHp = 0; gojouMugenMaxHp = 0; gojouMugenCooldown = 0;
+
+    gameActive = true; 
+    updateLoop();
+}
+
+function updateLoop() {
+    if (!gameActive) return;
+    surviveTime += 1 / 60; player.animTimer++;
+    
+    if (spellCooldown > 0) { spellCooldown--; bombBtn.disabled = true; bombCdText.innerText = `${Math.ceil(spellCooldown/60)}s`; } 
+    else { bombBtn.disabled = false; bombCdText.innerText = "READY"; }
+    
+    if (spellActiveTimer > 0) { spellActiveTimer--; if (spellActiveTimer <= 0) sakuyaTimeStopActive = false; }
+
+    if (player.type === 'reimu' && personalSkillLevel > 0 && reimuBarrierHp <= 0) {
+        reimuBarrierCooldown--;
+        if (reimuBarrierCooldown <= 0) { reimuBarrierHp = reimuBarrierMaxHp; createParticles(player.x, player.y, '#ff4757', 15); }
+    }
+
+    // 五条悟のバリア管理
+    if (player.type === 'gojou' && personalSkillLevel > 0 && gojouMugenHp <= 0) {
+        gojouMugenCooldown--;
+        if (gojouMugenCooldown <= 0) { gojouMugenHp = gojouMugenMaxHp; createParticles(player.x, player.y, '#74b9ff', 20); }
+    }
+
+    let dx = 0, dy = 0;
+    if (keys['arrowup'] || keys['w']) dy -= 1;
+    if (keys['arrowdown'] || keys['s']) dy += 1;
+    if (keys['arrowleft'] || keys['a']) dx -= 1;
+    if (keys['arrowright'] || keys['d']) dx += 1;
+
+    if (isTouching && (touchMoveVector.x !== 0 || touchMoveVector.y !== 0)) { dx = touchMoveVector.x; dy = touchMoveVector.y; } 
+    else if (dx !== 0 && dy !== 0) { dx *= 0.7071; dy *= 0.7071; }
+
+    player.isMoving = (dx !== 0 || dy !== 0);
+    if (dx !== 0) player.lastDirX = dx;
+    
+    let currentSpeed = player.speed;
+    if (player.type === 'youmu' && spellActiveTimer > 0) currentSpeed *= 1.8;
+    
+    player.x += dx * currentSpeed; player.y += dy * currentSpeed;
+    camera.x = player.x - canvas.width / 2; camera.y = player.y - canvas.height / 2;
+
+    if (player.type === 'reisen' && personalSkillLevel > 0 && !sakuyaTimeStopActive && player.animTimer % 100 === 0) {
+        let waveRadius = personalSkillLevel === 1 ? 160 : 250;
+        let waveDmg = personalSkillLevel === 1 ? player.damage : player.damage * 2;
+        enemies.forEach(e => {
+            let d = Math.hypot(e.x - player.x, e.y - player.y);
+            if (d < waveRadius) {
+                e.hp -= waveDmg;
+                let pushAng = Math.atan2(e.y - player.y, e.x - player.x);
+                e.x += Math.cos(pushAng) * 45; e.y += Math.sin(pushAng) * 45; 
+                createParticles(e.x, e.y, '#a55eea', 3); createSynthSE('hit');
+            }
+        });
+    }
+
+    if (player.type === 'sakuya' && personalSkillLevel > 0) {
+        sakuyaDollKnives.forEach(k => {
+            if (!sakuyaTimeStopActive) { k.x += k.vx; k.y += k.vy; }
+            if (Math.abs(k.x - player.x) > 460) k.vx *= -1;
+            if (Math.abs(k.y - player.y) > 280) k.vy *= -1;
+            enemies.forEach(e => {
+                if (Math.hypot(e.x - k.x, e.y - k.y) < e.size * 0.6) {
+                    e.hp -= player.damage * 0.4; createParticles(e.x, e.y, '#74b9ff', 1);
+                    if (player.animTimer % 6 === 0) createSynthSE('hit');
+                }
+            });
+        });
+    }
+
+    if (player.type === 'youmu' && personalSkillLevel > 0) {
+        youmuHalfGhost.angle += 0.03;
+        let targetGx = player.x + Math.cos(youmuHalfGhost.angle) * 60;
+        let targetGy = player.y + Math.sin(youmuHalfGhost.angle) * 60;
+        youmuHalfGhost.x += (targetGx - youmuHalfGhost.x) * 0.1;
+        youmuHalfGhost.y += (targetGy - youmuHalfGhost.y) * 0.1;
+
+        if (enemies.length > 0 && !sakuyaTimeStopActive) {
+            youmuHalfGhost.attackCooldown--;
+            if (youmuHalfGhost.attackCooldown <= 0) {
+                youmuHalfGhost.attackCooldown = personalSkillLevel === 1 ? 25 : 12;
+                let nearest = enemies[0]; let nearD = Math.hypot(enemies[0].x - youmuHalfGhost.x, enemies[0].y - youmuHalfGhost.y);
+                enemies.forEach(e => { let d = Math.hypot(e.x - youmuHalfGhost.x, e.y - youmuHalfGhost.y); if (d < nearD) { nearD = d; nearest = e; } });
+                let ghostAng = Math.atan2(nearest.y - youmuHalfGhost.y, nearest.x - youmuHalfGhost.x);
+                bullets.push({ x: youmuHalfGhost.x, y: youmuHalfGhost.y, vx: Math.cos(ghostAng)*12, vy: Math.sin(ghostAng)*12, damage: player.damage * 0.6, type: 'ghost_wave', size: 18 });
+                createSynthSE('shoot');
+            }
+        }
+    }
+
+    if (subWeapons.garlic > 0 && !sakuyaTimeStopActive && player.animTimer % 10 === 0) {
+        let radius = 50 + subWeapons.garlic * 15; let dmg = 2 + subWeapons.garlic * 2;
+        let didHit = false;
+        enemies.forEach(e => { if (Math.hypot(e.x - player.x, e.y - player.y) < radius) { e.hp -= dmg; createParticles(e.x, e.y, '#2ed573', 1); didHit = true; } });
+        if (didHit) createSynthSE('hit');
+    }
+
+    bullets = bullets.filter(b => b.type !== 'book' && b.type !== 'slash');
+    if (subWeapons.book > 0) {
+        let count = subWeapons.book + 1; let radius = 90 + subWeapons.book * 10;
+        for (let i = 0; i < count; i++) {
+            let angle = (player.animTimer * 0.04) + (i * (Math.PI * 2 / count));
+            bullets.push({ x: player.x + Math.cos(angle) * radius, y: player.y + Math.sin(angle) * radius, vx: 0, vy: 0, damage: 4 + subWeapons.book * 3, type: 'book', size: 20 });
+        }
+    }
+
+    if (subWeapons.thunder > 0 && !sakuyaTimeStopActive) {
+        thunderTimer++; let interval = Math.max(20, 90 - subWeapons.thunder * 10);
+        if (thunderTimer >= interval && enemies.length > 0) {
+            thunderTimer = 0; let target = enemies[Math.floor(Math.random() * enemies.length)];
+            target.hp -= (25 + subWeapons.thunder * 15); createParticles(target.x, target.y, '#eccc68', 15);
+            createSynthSE('bomb');
+        }
+    }
+
+    if (player.type === 'youmu') {
+        let slashSize = (spellActiveTimer > 0) ? 75 : 36; 
+        for (let i = 0; i < player.multishot; i++) {
+            let angle = (player.animTimer * 0.06) + (i * (Math.PI * 2 / player.multishot));
+            let radius = (spellActiveTimer > 0) ? 140 : 85;
+            bullets.push({ x: player.x + Math.cos(angle) * radius, y: player.y + Math.sin(angle) * radius, vx: 0, vy: 0, damage: player.damage * 0.75, type: 'slash', size: slashSize });
+        }
+    }
+
+    if (player.shootCooldown <= 0 && enemies.length > 0) {
+        player.shootCooldown = 60 / player.attackSpeed;
+        let target = enemies[0]; let minDist = Math.hypot(enemies[0].x - player.x, enemies[0].y - player.y);
+        for (let i = 1; i < enemies.length; i++) { let d = Math.hypot(enemies[i].x - player.x, enemies[i].y - player.y); if (d < minDist) { minDist = d; target = enemies[i]; } }
+        let baseAngle = Math.atan2(target.y - player.y, target.x - player.x);
+        createSynthSE('shoot');
+
+        if (player.type === 'reimu') {
+            let baseDmgMultiplier = (personalSkillLevel > 0) ? 2.0 : 1.0; 
+            for (let i = 0; i < player.multishot; i++) {
+                let angle = baseAngle + (i - (player.multishot-1)/2) * 0.25;
+                bullets.push({ x: player.x, y: player.y, vx: Math.cos(angle) * 11, vy: Math.sin(angle) * 11, damage: player.damage * baseDmgMultiplier, type: 'amulet', size: 16 });
+            }
+        } else if (player.type === 'marisa') {
+            let isPenetrate = (personalSkillLevel > 0); 
+            let starSize = (personalSkillLevel === 2) ? 30 : 18;
+            let moveAngle = player.lastDirX > 0 ? 0 : Math.PI;
+            for (let i = 0; i < player.multishot; i++) {
+                let angle = moveAngle + (i - (player.multishot-1)/2) * 0.2;
+                bullets.push({ x: player.x, y: player.y, vx: Math.cos(angle) * 15, vy: Math.sin(angle) * 15, damage: player.damage * 0.85, type: 'star', size: starSize, penetrate: isPenetrate });
+            }
+        } else if (player.type === 'sakuya') {
+            let finalAngle = baseAngle;
+            for (let i = 0; i < player.multishot; i++) {
+                let angle = finalAngle + (i - (player.multishot-1)/2) * 0.15;
+                bullets.push({ x: player.x, y: player.y, vx: Math.cos(angle) * 18, vy: Math.sin(angle) * 18, damage: player.damage * 0.9, type: 'knife', size: 14 });
+            }
+        } else if (player.type === 'reisen') {
+            for (let i = 0; i < player.multishot; i++) {
+                let offset = (i - (player.multishot-1)/2) * 12;
+                bullets.push({ x: player.x + offset, y: player.y, vx: player.lastDirX * 14, vy: 0, damage: player.damage * 1.1, type: '座薬', size: 20 });
+                bullets.push({ x: player.x - offset, y: player.y, vx: -player.lastDirX * 14, vy: 0, damage: player.damage * 0.7, type: '座薬', size: 20 });
+            }
+        } else if (player.type === 'gojou') {
+            // 五条悟：術式順転「蒼」(敵を引き寄せる重力弾弾幕)
+            for (let i = 0; i < player.multishot; i++) {
+                let angle = baseAngle + (i - (player.multishot-1)/2) * 0.2;
+                bullets.push({ x: player.x, y: player.y, vx: Math.cos(angle) * 8, vy: Math.sin(angle) * 8, damage: player.damage, type: 'ao', size: 24 });
+            }
+        } else if (player.type === 'roxy') {
+            // ロキシー：絶対零度(着弾で大爆発する氷結魔法)
+            for (let i = 0; i < player.multishot; i++) {
+                let angle = baseAngle + (i - (player.multishot-1)/2) * 0.25;
+                bullets.push({ x: player.x, y: player.y, vx: Math.cos(angle) * 10, vy: Math.sin(angle) * 10, damage: player.damage * 1.4, type: 'ice', size: 22 });
+            }
+        }
+    } else { player.shootCooldown--; }
+
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        let b = bullets[i];
+        if (b.type === 'amulet' && enemies.length > 0) {
+            let t = enemies[0]; let mD = Math.hypot(enemies[0].x - b.x, enemies[0].y - b.y);
+            for (let j = 1; j < enemies.length; j++) { let d = Math.hypot(enemies[j].x - b.x, enemies[j].y - b.y); if (d < mD) { mD = d; t = enemies[j]; } }
+            let curAngle = Math.atan2(b.vy, b.vx); let targetAngle = Math.atan2(t.y - b.y, t.x - b.x); let diff = targetAngle - curAngle;
+            while (diff < -Math.PI) diff += Math.PI * 2; while (diff > Math.PI) diff -= Math.PI * 2;
+            curAngle += diff * 0.22; b.vx = Math.cos(curAngle) * 11; b.vy = Math.sin(curAngle) * 11;
+        }
+        
+        // 五条悟の「蒼」の吸引効果
+        if (b.type === 'ao') {
+            enemies.forEach(e => {
+                if (Math.hypot(e.x - b.x, e.y - b.y) < 160) {
+                    let PullAng = Math.atan2(b.y - e.y, b.x - e.x);
+                    e.x += Math.cos(PullAng) * 3.5; e.y += Math.sin(PullAng) * 3.5;
+                }
+            });
+        }
+
+        b.x += b.vx; b.y += b.vy;
+        if (b.type !== 'slash' && b.type !== 'book' && Math.hypot(b.x - player.x, b.y - player.y) > 850) { bullets.splice(i, 1); }
+    }
+
+    if (!sakuyaTimeStopActive) {
+        spawnTimer++; const spawnRate = Math.max(4, 26 - Math.floor(surviveTime / 10)); 
+        if (spawnTimer % spawnRate === 0) {
+            const angle = Math.random() * Math.PI * 2;
+            let difficultyCurve = 1.0;
+            if (surviveTime > 90) difficultyCurve += (surviveTime - 90) * 0.02; 
+            if (surviveTime > 180) difficultyCurve += (surviveTime - 180) * 0.05; 
+
+            let size = 24, hp = (9 + (surviveTime * 1.5)) * difficultyCurve, speed = 2.4 + Math.random() * 0.6, isBoss = false, color = '#7f8c8d';
+            if (Math.random() < 0.05 + (surviveTime / 220) || spawnTimer % 1800 === 0) { 
+                isBoss = true; size = 55; hp = (250 + (surviveTime * 15)) * difficultyCurve; speed = 1.3; color = '#8e44ad'; 
+            } else if (surviveTime > 120 && Math.random() < 0.4) { 
+                size = 20; hp = (15 + (surviveTime * 1.5)) * difficultyCurve; speed = 4.2 * Math.min(1.5, difficultyCurve); color = '#a55eea'; 
+            } else if (surviveTime > 60 && Math.random() < 0.5) { 
+                size = 32; hp = (35 + (surviveTime * 3.0)) * difficultyCurve; speed = 1.8; color = '#fed330'; 
+            }
+            enemies.push({ x: player.x + Math.cos(angle) * 600, y: player.y + Math.sin(angle) * 600, size: size, hp: hp, maxHp: hp, speed: speed, isBoss: isBoss, color: color, damageMultiplier: difficultyCurve });
+        }
+    }
+
+    if (player.type === 'marisa' && spellActiveTimer > 0) {
+        let laserHeight = 110, laserWidth = 900;
+        let laserLeft = marisaLaserDirection > 0 ? player.x : player.x - laserWidth; let laserTop = player.y - laserHeight / 2;
+        enemies.forEach(enemy => {
+            if (enemy.x + enemy.size/2 > laserLeft && enemy.x - enemy.size/2 < laserLeft + laserWidth && enemy.y + enemy.size/2 > laserTop && enemy.y - enemy.size/2 < laserTop + laserHeight) {
+                enemy.hp -= player.damage * 0.8; createParticles(enemy.x, enemy.y, '#f1c40f', 1);
+                if (player.animTimer % 5 === 0) createSynthSE('hit');
+            }
+        });
+    }
+
+    for (let eIndex = enemies.length - 1; eIndex >= 0; eIndex--) {
+        const enemy = enemies[eIndex];
+        
+        if (player.type === 'reimu' && personalSkillLevel > 0 && reimuBarrierHp > 0) {
+            let barrierR = personalSkillLevel === 1 ? 80 : 130;
+            let barrierDist = Math.hypot(player.x - enemy.x, player.y - enemy.y);
+            if (barrierDist < barrierR) {
+                let pushA = Math.atan2(enemy.y - player.y, enemy.x - player.x);
+                enemy.x = player.x + Math.cos(pushA) * barrierR; enemy.y = player.y + Math.sin(pushA) * barrierR;
+                let cost = enemy.isBoss ? 5.0 : 0.5; reimuBarrierHp -= cost;
+                if (reimuBarrierHp <= 0) {
+                    reimuBarrierHp = 0; reimuBarrierCooldown = personalSkillLevel === 1 ? 720 : 420;
+                    createParticles(player.x, player.y, '#fff', 20); createSynthSE('damage');
+                }
+            }
+        }
+
+        // 五条悟の無下限呪術シールド処理
+        if (player.type === 'gojou' && personalSkillLevel > 0 && gojouMugenHp > 0) {
+            let barrierR = personalSkillLevel === 1 ? 70 : 110;
+            let barrierDist = Math.hypot(player.x - enemy.x, player.y - enemy.y);
+            if (barrierDist < barrierR) {
+                let pushA = Math.atan2(enemy.y - player.y, enemy.x - player.x);
+                enemy.x = player.x + Math.cos(pushA) * barrierR; enemy.y = player.y + Math.sin(pushA) * barrierR;
+                let cost = enemy.isBoss ? 8.0 : 0.8; gojouMugenHp -= cost;
+                if (gojouMugenHp <= 0) {
+                    gojouMugenHp = 0; gojouMugenCooldown = personalSkillLevel === 1 ? 600 : 360;
+                    createParticles(player.x, player.y, '#74b9ff', 25); createSynthSE('damage');
+                }
+            }
+        }
+
+        if (!sakuyaTimeStopActive) {
+            const dist = Math.hypot(player.x - enemy.x, player.y - enemy.y);
+            if (dist > 0) { enemy.x += ((player.x - enemy.x) / dist) * enemy.speed; enemy.y += ((player.y - enemy.y) / dist) * enemy.speed; }
+        }
+
+        const distToPlayer = Math.hypot(player.x - enemy.x, player.y - enemy.y);
+        if (distToPlayer < (enemy.size * 0.45 + player.size * 0.4) && !sakuyaTimeStopActive) {
+            if (!(player.type === 'youmu' && spellActiveTimer > 0)) {
+                player.hp -= (enemy.isBoss ? 1.6 : 0.6) * enemy.damageMultiplier; createParticles(enemy.x, enemy.y, '#ff4d4d', 1);
+                if (player.animTimer % 15 === 0) createSynthSE('damage'); 
+                if (player.hp <= 0) { gameOver(); return; }
+            }
+        }
+
+        for (let bIndex = bullets.length - 1; bIndex >= 0; bIndex--) {
+            const b = bullets[bIndex];
+            if (Math.hypot(b.x - enemy.x, b.y - enemy.y) < (enemy.size * 0.5 + b.size * 0.5)) {
+                
+                // ロキシーの氷結弾がヒットしたときの範囲爆発
+                if (b.type === 'ice') {
+                    createParticles(b.x, b.y, '#54a0ff', 10);
+                    enemies.forEach(e => {
+                        if (Math.hypot(e.x - b.x, e.y - b.y) < 100) {
+                            e.hp -= b.damage * 0.6;
+                        }
+                    });
+                }
+
+                enemy.hp -= b.damage; createParticles(enemy.x, enemy.y, '#54a0ff', 2); createSynthSE('hit');
+                if (b.type !== 'slash' && b.type !== 'book' && b.type !== 'ao' && !b.penetrate) bullets.splice(bIndex, 1);
+            }
+        }
+
+        if (enemy.hp <= 0) {
+            enemies.splice(eIndex, 1); score += enemy.isBoss ? 500 : 40;
+            gems.push({ x: enemy.x, y: enemy.y, value: enemy.isBoss ? 15 : 1, type: 'exp' }); gems.push({ x: enemy.x, y: enemy.y, value: enemy.isBoss ? 25 : 4, type: 'gold' }); 
+        }
+    }
+
+    for (let gIndex = gems.length - 1; gIndex >= 0; gIndex--) {
+        const gem = gems[gIndex]; const dist = Math.hypot(player.x - gem.x, player.y - gem.y);
+        if (dist < player.magnetRange) { gem.x += ((player.x - gem.x) / dist) * 10; gem.y += ((player.y - gem.y) / dist) * 10; }
+        if (dist < 22) {
+            createSynthSE('get'); 
+            if (gem.type === 'exp') { exp += gem.value; if (exp >= nextExp) { levelUp(); gems.splice(gIndex, 1); return; } }
+            else if (gem.type === 'gold') goldEarned += gem.value;
+            gems.splice(gIndex, 1);
+        }
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) { p = particles[i]; p.x += p.vx; p.y += p.vy; p.alpha -= 0.05; if (p.alpha <= 0) particles.splice(i, 1); }
+    draw(); requestAnimationFrame(updateLoop);
+}
+
+function createParticles(x, y, color, count = 3) { for (let i = 0; i < count; i++) particles.push({ x: x, y: y, vx: (Math.random() - 0.5) * 5, vy: (Math.random() - 0.5) * 5, color: color, alpha: 1 }); }
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let bgGridColor = sakuyaTimeStopActive ? '#2c3e50' : (surviveTime > 180 ? '#4a1525' : (surviveTime > 60 ? '#192a20' : '#141423'));
+    ctx.strokeStyle = bgGridColor; ctx.lineWidth = 1; const spacing = 64;
+    for (let x = Math.floor(camera.x / spacing) * spacing; x < camera.x + canvas.width + spacing; x += spacing) { ctx.beginPath(); ctx.moveTo(x - camera.x, 0); ctx.lineTo(x - camera.x, canvas.height); ctx.stroke(); }
+    for (let y = Math.floor(camera.y / spacing) * spacing; y < camera.y + canvas.height + spacing; y += spacing) { ctx.beginPath(); ctx.moveTo(0, y - camera.y); ctx.lineTo(canvas.width, y - camera.y); ctx.stroke(); }
+
+    if (player.type === 'reimu' && personalSkillLevel > 0 && reimuBarrierHp > 0) {
+        ctx.save(); let bRadius = personalSkillLevel === 1 ? 80 : 130;
+        let alpha = (reimuBarrierHp / reimuBarrierMaxHp) * 0.4 + 0.1;
+        ctx.strokeStyle = `rgba(255, 71, 87, ${alpha})`; ctx.lineWidth = 3; ctx.setLineDash([6, 6]);
+        ctx.beginPath(); ctx.arc(player.x - camera.x, player.y - camera.y, bRadius, 0, Math.PI*2); ctx.stroke();
+        ctx.fillStyle = `rgba(255, 71, 87, ${alpha * 0.1})`; ctx.fill(); ctx.restore();
+    }
+
+    // 五条悟無下限シールドエフェクト描画
+    if (player.type === 'gojou' && personalSkillLevel > 0 && gojouMugenHp > 0) {
+        ctx.save(); let bRadius = personalSkillLevel === 1 ? 70 : 110;
+        let alpha = (gojouMugenHp / gojouMugenMaxHp) * 0.5 + 0.1;
+        ctx.strokeStyle = `rgba(116, 185, 255, ${alpha})`; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(player.x - camera.x, player.y - camera.y, bRadius, 0, Math.PI*2); ctx.stroke();
+        ctx.fillStyle = `rgba(116, 185, 255, ${alpha * 0.15})`; ctx.fill(); ctx.restore();
+    }
+
+    if (subWeapons.garlic > 0) {
+        ctx.save(); let radius = 50 + subWeapons.garlic * 15;
+        let grad = ctx.createRadialGradient(player.x - camera.x, player.y - camera.y, radius*0.5, player.x - camera.x, player.y - camera.y, radius);
+        grad.addColorStop(0, 'rgba(46, 213, 115, 0)'); grad.addColorStop(0.7, 'rgba(46, 213, 115, 0.15)'); grad.addColorStop(1, 'rgba(46, 213, 115, 0)');
+        ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(player.x - camera.x, player.y - camera.y, radius, 0, Math.PI*2); ctx.fill(); ctx.restore();
+    }
+
+    if (player.type === 'reisen' && spellActiveTimer > 0) {
+        ctx.save(); ctx.strokeStyle = 'rgba(165, 94, 234, ' + (spellActiveTimer/45) + ')'; ctx.lineWidth = 8;
+        ctx.beginPath(); ctx.arc(player.x - camera.x, player.y - camera.y, 350 * (1 - spellActiveTimer/45), 0, Math.PI*2); ctx.stroke(); ctx.restore();
+    }
+
+    gems.forEach(gem => { ctx.save(); ctx.translate(gem.x - camera.x, gem.y - camera.y); if (gem.type === 'exp') { ctx.fillStyle = '#2e86de'; ctx.fillRect(-5, -5, 10, 10); } else { ctx.fillStyle = '#ff3838'; ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI*2); ctx.fill(); } ctx.restore(); });
+    
+    bullets.forEach(b => { 
+        ctx.save(); ctx.translate(b.x - camera.x, b.y - camera.y); 
+        if (b.type === 'amulet') { ctx.fillStyle = '#ff4d4d'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.fillRect(-4, -8, 8, 16); ctx.strokeRect(-4, -8, 8, 16); } 
+        else if (b.type === 'star') { ctx.fillStyle = '#f1c40f'; ctx.font = `bold ${b.size + 4}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('★', 0, 0); } 
+        else if (b.type === 'knife' || b.type === 'doll_knife') { ctx.fillStyle = '#dcdde1'; ctx.strokeStyle = '#7f8c8d'; ctx.lineWidth = 1; ctx.fillRect(-2, -7, 4, 14); ctx.strokeRect(-2, -7, 4, 14); }
+        else if (b.type === '座薬') { ctx.fillStyle = '#ff4757'; ctx.beginPath(); ctx.ellipse(0, 0, 12, 6, 0, 0, Math.PI*2); ctx.fill(); }
+        else if (b.type === 'book') { ctx.fillStyle = '#9b59b6'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.fillRect(-8, -10, 16, 20); ctx.fillStyle = '#fff'; ctx.fillRect(2, -10, 2, 20); }
+        else if (b.type === 'slash') { let grad = ctx.createRadialGradient(0,0,2, 0,0,b.size/2); grad.addColorStop(0, '#fff'); grad.addColorStop(0.5, '#2ed573'); grad.addColorStop(1, 'rgba(46,213,115,0)'); ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0, 0, b.size/2, 0, Math.PI*2); ctx.fill(); }
+        else if (b.type === 'ghost_wave') { ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.strokeStyle = '#2ed573'; ctx.beginPath(); ctx.arc(0,0, b.size/2, 0, Math.PI*2); ctx.fill(); ctx.stroke(); }
+        else if (b.type === 'ao') { 
+            // 五条悟の「蒼」のグラデーション弾
+            let grad = ctx.createRadialGradient(0,0,2, 0,0,b.size/2);
+            grad.addColorStop(0, '#fff'); grad.addColorStop(0.4, '#341f97'); grad.addColorStop(1, 'rgba(116,185,255,0)');
+            ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0, 0, b.size/2, 0, Math.PI*2); ctx.fill();
+        } else if (b.type === 'ice') {
+            // ロキシーの「絶対零度」の結晶弾
+            let grad = ctx.createRadialGradient(0,0,2, 0,0,b.size/2);
+            grad.addColorStop(0, '#fff'); grad.addColorStop(0.5, '#54a0ff'); grad.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0, 0, b.size/2, 0, Math.PI*2); ctx.fill();
+        }
+        ctx.restore(); 
+    });
+
+    if (player.type === 'sakuya' && personalSkillLevel > 0) {
+        sakuyaDollKnives.forEach(k => {
+            ctx.save(); ctx.translate(k.x - camera.x, k.y - camera.y);
+            ctx.fillStyle = '#74b9ff'; ctx.strokeStyle = '#fff'; ctx.fillRect(-3, -8, 6, 16); ctx.strokeRect(-3, -8, 6, 16); ctx.restore();
+        });
+    }
+
+    if (player.type === 'marisa' && spellActiveTimer > 0) {
+        ctx.save(); let lHeight = 110 + Math.sin(player.animTimer * 0.4) * 15, lWidth = 960;
+        let lX = marisaLaserDirection > 0 ? player.x - camera.x : player.x - camera.x - lWidth; let lY = player.y - camera.y - lHeight / 2;
+        let grad = ctx.createLinearGradient(0, lY, 0, lY + lHeight); grad.addColorStop(0, 'rgba(255, 159, 67, 0)'); grad.addColorStop(0.2, '#ff9f43'); grad.addColorStop(0.5, '#fff'); grad.addColorStop(0.8, '#f1c40f'); grad.addColorStop(1, 'rgba(255, 159, 67, 0)');
+        ctx.fillStyle = grad; ctx.fillRect(lX, lY, lWidth, lHeight); ctx.fillStyle = '#ffffff'; ctx.fillRect(lX, lY + lHeight*0.35, lWidth, lHeight*0.3); ctx.restore();
+    }
+    
+    enemies.forEach(enemy => { 
+        ctx.save(); ctx.translate(enemy.x - camera.x, enemy.y - camera.y); 
+        ctx.fillStyle = sakuyaTimeStopActive ? '#555' : enemy.color; ctx.beginPath(); ctx.arc(0, 0, enemy.size/2, 0, Math.PI*2); ctx.fill(); 
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-enemy.size*0.15, -1, 3, 0, Math.PI*2); ctx.arc(enemy.size*0.15, -1, 3, 0, Math.PI*2); ctx.fill(); ctx.restore(); 
+    });
+
+    if (player.type === 'youmu' && personalSkillLevel > 0) {
+        ctx.save(); ctx.translate(youmuHalfGhost.x - camera.x, youmuHalfGhost.y - camera.y);
+        ctx.fillStyle = 'rgba(245, 246, 250, 0.85)'; ctx.shadowBlur = 10; ctx.shadowColor = '#fff';
+        ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI*2); ctx.fill(); ctx.restore();
+    }
+
+    ctx.save(); ctx.translate(player.x - camera.x, player.y - camera.y); if (player.lastDirX < 0) ctx.scale(-1, 1);
+    const bob = Math.sin(player.animTimer * 0.12) * 2;
+    if (player.type === 'youmu' && spellActiveTimer > 0) ctx.globalAlpha = 0.6 + Math.sin(player.animTimer*0.5)*0.3;
+    
+    if (imageLoaded[player.type]) { 
+        ctx.imageSmoothingEnabled = false; 
+        ctx.drawImage(charImages[player.type], -player.size/2, -player.size/2 + bob, player.size, player.size); 
+    } else { 
+        let colors = { reimu: '#ff4d4d', marisa: '#f1c40f', youmu: '#2ed573', sakuya: '#74b9ff', reisen: '#a55eea', gojou: '#ffffff', roxy: '#54a0ff' };
+        ctx.fillStyle = colors[player.type]; ctx.beginPath(); ctx.arc(0, bob, player.size/2, 0, Math.PI*2); ctx.fill(); 
+    }
+    ctx.restore(); ctx.globalAlpha = 1.0;
+    
+    particles.forEach(p => { ctx.fillStyle = p.color; ctx.globalAlpha = p.alpha; ctx.fillRect(p.x - camera.x, p.y - camera.y, 4, 4); ctx.globalAlpha = 1.0; });
+
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.roundRect(20, 20, canvas.width - 40, 10, 5); ctx.fill();
+    ctx.fillStyle = '#2e86de'; ctx.beginPath(); ctx.roundRect(20, 20, (canvas.width - 40) * Math.min(1, exp / nextExp), 10, 5); ctx.fill();
+    
+    ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = '#fff';
+    ctx.fillText(`Lv. ${level}`, 20, 55); ctx.fillText(`SCORE: ${score}`, 20, 77); ctx.fillStyle = '#ffcc00'; ctx.fillText(`POINT: ${goldEarned}`, 20, 99); ctx.fillStyle = '#a4b0be'; const min = Math.floor(surviveTime / 60); const sec = Math.floor(surviveTime % 60).toString().padStart(2, '0'); ctx.fillText(`TIME: ${min}:${sec}`, 20, 121);
+    
+    let swText = "SKILL: ";
+    if (subWeapons.garlic > 0) swText += `🧄Lv.${subWeapons.garlic} `;
+    if (subWeapons.book > 0) swText += `📖Lv.${subWeapons.book} `;
+    if (subWeapons.thunder > 0) swText += `⚡Lv.${subWeapons.thunder} `;
+    if (personalSkillLevel > 0) swText += `⭐固有Lv.${personalSkillLevel} `;
+    if (player.type === 'reimu' && personalSkillLevel > 0) {
+        if (reimuBarrierHp > 0) swText += `🛡️結界:${Math.ceil(reimuBarrierHp)} `;
+        else swText += `⏳結界再生中:${Math.ceil(reimuBarrierCooldown/60)}s `;
+    }
+    // 五条悟のバリア状況UI
+    if (player.type === 'gojou' && personalSkillLevel > 0) {
+        if (gojouMugenHp > 0) swText += `🛡️無下限:${Math.ceil(gojouMugenHp)} `;
+        else swText += `⏳無下限再生中:${Math.ceil(gojouMugenCooldown/60)}s `;
+    }
+    ctx.fillStyle = '#2ed573'; ctx.font = 'bold 12px sans-serif'; ctx.fillText(swText, 20, 142);
+
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.roundRect(20, canvas.height - 35, 220, 16, 8); ctx.fill();
+    ctx.fillStyle = '#ff4757'; ctx.beginPath(); ctx.roundRect(20, canvas.height - 35, 220 * Math.max(0, player.hp / player.maxHp), 16, 8); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 10px sans-serif'; ctx.fillText(`LIFE: ${Math.ceil(player.hp)}/${player.maxHp}`, 32, canvas.height - 23);
+}
+
+function levelUp() {
+    gameActive = false; level++; exp -= nextExp; nextExp = Math.floor(nextExp * 1.5) + 4;
+    createSynthSE('levelup'); 
+    uiTitle.innerText = `能力開花 (Lv.${level})`; uiOptions.innerHTML = ""; 
+    const options = getUpgradeOptions();
+    options.forEach(upgrade => {
+        const btn = document.createElement('button'); btn.className = 'btn'; btn.innerText = upgrade.name;
+        btn.onclick = () => { createSynthSE('click'); upgrade.effect(); uiLayer.style.display = 'none'; gameActive = true; updateLoop(); };
+        uiOptions.appendChild(btn);
+    });
+    uiLayer.style.display = 'flex';
+}
+
+function gameOver() {
+    gameActive = false; uiTitle.innerText = "満身創痍"; saveData.gold += goldEarned; saveGame();
+    createSynthSE('gameover'); 
+    const min = Math.floor(surviveTime / 60); const sec = Math.floor(surviveTime % 60).toString().padStart(2, '0');
+    uiOptions.innerHTML = `<p style="margin:5px 0; font-size:16px;">リザルト</p><p style="margin:5px 0; font-size:14px;">防衛時間: ${min}分${sec}秒</p><p style="margin:5px 0; font-size:14px;">回収POINT: <span class="p-text">+${goldEarned}</span> 🔴</p>`;
+    const menuBtn = document.createElement('button'); menuBtn.className = 'btn'; menuBtn.innerText = '里へ戻る';
+    menuBtn.onclick = () => { 
+        createSynthSE('click');
+        uiLayer.style.display = 'none'; gameContainer.style.display = 'none'; document.getElementById('mainMenu').style.display = 'block'; 
+        stopBgm();
+        updateMenuUI(); 
+    };
+    uiOptions.appendChild(menuBtn); uiLayer.style.display = 'flex';
+}
+
+loadGame();
+</script>
+</body>
+</html>
