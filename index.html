@@ -1384,7 +1384,7 @@ function draw() {
     ctx.shadowColor = "rgba(0, 0, 0, 0.7)"; // 文字に影をつけて見やすくする
     ctx.shadowBlur = 4;
     // ⭕ 左下に表示（下端から30マスの位置）
-    ctx.fillText(`📍 ${stageSettings[currentStage].name} (Stage ${currentStage})`, 20, canvas.height - 30);
+    ctx.fillText(`📍 ${stageSettings[currentStage].name} (Stage ${currentStage})`, 20, canvas.height - 40);
     ctx.shadowBlur = 0; // 影の設定をリセット
 
     // 4. 元々あったグリッド線（網目）の描画処理（咲夜の時間停止などにも連動します！）
