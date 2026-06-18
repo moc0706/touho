@@ -1523,8 +1523,8 @@ if (enemy.img && enemy.img.complete) {
     // 💡 影や円などの余計な処理を一切挟まず、ただ画像を描画するだけに戻します
     ctx.drawImage(
         enemy.img, 
-        enemy.x - enemy.size / 2, 
-        enemy.y - enemy.size / 2, 
+        -enemy.size / 2, // ⭕ 修正
+        -enemy.size / 2, // ⭕ 修正
         enemy.size, 
         enemy.size
     );
