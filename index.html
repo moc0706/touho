@@ -759,9 +759,15 @@ const bgImg1 = new Image(); bgImg1.src = "https://images.unsplash.com/photo-1534
 const bgImg2 = new Image(); bgImg2.src = "https://images.unsplash.com/photo-1506318137071-a8e063b4bec0?w=800"; 
 const bgImg3 = new Image(); bgImg3.src = "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800"; 
 
-const enemyImgKedama = new Image(); enemyImgKedama.src = "https://api.iconify.design/twemoji:yawning-face.svg"; 
-const enemyImgMaid   = new Image(); enemyImgMaid.src   = "https://api.iconify.design/twemoji:angry-face.svg";   
-const enemyImgZombie = new Image(); enemyImgZombie.src = "https://api.iconify.design/twemoji:ghost.svg";        
+const enemyImgKedama = new Image(); enemyImgKedama.src = "kedama.gif"; 
+const enemyImgFairy1 = new Image(); 
+enemyImgFairy1.src = "yousei3.gif";  // 👈 1：青い妖精
+
+const enemyImgFairy2 = new Image(); 
+enemyImgFairy2.src = "yousei2.gif";   // 👈 2：赤い妖精
+
+const enemyImgFairy3 = new Image(); 
+enemyImgFairy3.src = "yousei.gif"; // 👈 3：黄色の妖精
 
 const stageSettings = {
     1: { name: "博麗神社周辺", bg: bgImg1, enemyType: 'kedama', enemyImg: enemyImgKedama, hp: 10, spd: 1.5 },
@@ -1249,21 +1255,41 @@ function updateLoop() {
             } else if (surviveTime > 60 && Math.random() < 0.5) { 
                 size = 32; hp = (35 + (surviveTime * 3.0)) * difficultyCurve; speed = 1.8; color = '#fed330'; 
             }
-           // ⭕ 敵に現在のステージの画像をセットして追加する
-        enemies.push({ 
-            x: player.x + Math.cos(angle) * 600, 
-            y: player.y + Math.sin(angle) * 600, 
-            size: size, 
-            hp: hp, 
-            maxHp: hp, 
-            speed: speed, 
-            isBoss: isBoss, 
-            color: color, 
-            damageMultiplier: difficultyCurve,
-            img: stageSettings[currentStage].enemyImg // 💡 ここを追加しました！
-        });
+// 👇 👇 👇 【追加】ここにくじ引きの処理を挟みます 👇 👇 👇
+            
+            // 🎲 0, 1, 2, 3 のどれかの数字をランダムに作る
+            let enemyRandomNum = Math.floor(Math.random() * 4); 
+            
+            // 🖼️ 使う画像を準備（最初は毛玉）
+            let enemyImageToUse = enemyImgKedama; 
+            
+            // 🎲 くじ引きの結果に合わせて画像を変える
+            if (enemyRandomNum === 0) {
+                enemyImageToUse = enemyImgFairy1;  // 🎲 0なら青妖精
+            } else if (enemyRandomNum === 1) {
+                enemyImageToUse = enemyImgFairy2;  // 🎲 1なら赤妖精
+            } else if (enemyRandomNum === 2) {
+                enemyImageToUse = enemyImgFairy3;  // 🎲 2なら緑妖精
+            } else if (enemyRandomNum === 3) {
+                enemyImageToUse = enemyImgKedama;  // 🎲 3なら毛玉
+            }
+
+            // 👇 👇 👇 【書き換え】元々あった enemies.push の中身を調整します 👇 👇 👇
+
+            enemies.push({ 
+                x: player.x + Math.cos(angle) * 600, 
+                y: player.y + Math.sin(angle) * 600, 
+                size: size, 
+                hp: hp, 
+                maxHp: hp, 
+                speed: speed, 
+                isBoss: isBoss, 
+                color: color, 
+                damageMultiplier: difficultyCurve,
+                img: enemyImageToUse // 💡 ここを、さっき選ばれたランダム画像にする！
+            });
+        }
     }
-}
 
     if (player.type === 'marisa' && spellActiveTimer > 0) {
         let laserHeight = 110, laserWidth = 900;
