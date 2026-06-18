@@ -777,6 +777,7 @@ const stageSettings = {
 let gameActive = false, score = 0, level = 1, exp = 0, nextExp = 5, surviveTime = 0, goldEarned = 0;
 const camera = { x: 0, y: 0 };
 let player = {}, bullets = [], enemies = [], gems = [], particles = [], spawnTimer = 0;
+let damageTexts = [];
 const keys = {};
 
 let spellCooldown = 0, spellActiveTimer = 0, marisaLaserDirection = 1, sakuyaTimeStopActive = false;
@@ -977,6 +978,8 @@ function getUpgradeOptions() {
 }
 
 function startGame() {
+    // startGame() の中に追加
+    damageTexts = [];
     createSynthSE('click');
     document.getElementById('mainMenu').style.display = 'none';
     gameContainer.style.display = 'block';
@@ -1023,6 +1026,16 @@ function updateLoop() {
             currentStage = 3;
             createSynthSE('levelup');
         }
+    // 💥 【ここに手順3を追加！】ダメージ文字を上に動かして寿命を減らす処理
+    for (let i = damageTexts.length - 1; i >= 0; i--) {
+        let t = damageTexts[i];
+        t.x += t.vx; // 左右に少しバラけさせる
+        t.y += t.vy; // 上に向かって移動させる
+        t.life--;    // 表示時間を1減らす
+        if (t.life <= 0) {
+            damageTexts.splice(i, 1); // 寿命が尽きたら配列から消す
+        }
+    }
     
     if (spellCooldown > 0) { spellCooldown--; bombBtn.disabled = true; bombCdText.innerText = `${Math.ceil(spellCooldown/60)}s`; } 
     else { bombBtn.disabled = false; bombCdText.innerText = "READY"; }
@@ -1354,12 +1367,35 @@ function updateLoop() {
                     createParticles(b.x, b.y, '#54a0ff', 10);
                     enemies.forEach(e => {
                         if (Math.hypot(e.x - b.x, e.y - b.y) < 100) {
-                            e.hp -= b.damage * 0.6;
+                        let iceDmg = b.damage * 0.6;
+                    e.hp -= iceDmg;
+                    
+                    // 💥 【追加】氷結の範囲ダメージ表示
+                    damageTexts.push({
+                        x: e.x,
+                        y: e.y - e.size * 0.5,
+                        text: Math.floor(iceDmg),
+                        color: "#74b9ff", // 氷結らしく薄い青色
+                        life: 25,
+                        vx: (Math.random() - 0.5) * 1.2,
+                        vy: -1.5
+                    });
                         }
                     });
                 }
 
                 enemy.hp -= b.damage; createParticles(enemy.x, enemy.y, '#54a0ff', 2); createSynthSE('hit');
+
+                // 💥 【追加】通常の弾のダメージ表示
+        damageTexts.push({
+            x: enemy.x,
+            y: enemy.y - enemy.size * 0.5,
+            text: Math.floor(b.damage),
+            color: "#ffcc00", // 通常は黄色
+            life: 25,
+            vx: (Math.random() - 0.5) * 1.2,
+            vy: -1.5
+        });
                 if (b.type !== 'slash' && b.type !== 'book' && b.type !== 'beyond' && b.type !== 'ao' && !b.penetrate) bullets.splice(bIndex, 1);
             }
         }
@@ -1494,6 +1530,32 @@ function draw() {
         }
         ctx.restore(); 
     });
+
+// 💥 【ここに手順4を追加！】画面にダメージ数字を小さく重ねて描画する処理
+    ctx.save();
+    ctx.font = "bold 13px sans-serif"; // 小さめの太字
+    ctx.textAlign = "center";
+    
+    damageTexts.forEach(t => {
+        let screenX = t.x - camera.x;
+        let screenY = t.y - camera.y;
+        
+        // 消えかけるときにフェードアウトさせる（alpha値を計算）
+        let alpha = t.life > 10 ? 1 : t.life / 10;
+        
+        // 黒いフチ取りをして数字を見やすくする
+        ctx.strokeStyle = `rgba(0, 0, 0, ${alpha})`;
+        ctx.lineWidth = 3;
+        ctx.strokeText(t.text, screenX, screenY);
+        
+        // ダメージ数字の本体を描画
+        ctx.fillStyle = t.color; 
+        ctx.fillText(t.text, screenX, screenY);
+    });
+    ctx.restore();
+
+} // 📜 ここが draw() 関数全体の終わり（閉じ括弧）です
+    
 
     if (player.type === 'sakuya' && personalSkillLevel > 0) {
         sakuyaDollKnives.forEach(k => {
