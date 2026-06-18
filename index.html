@@ -1509,24 +1509,24 @@ function draw() {
             ctx.filter = "grayscale(100%) brightness(60%)";
         }
 
-       // ...（敵をループで描画している中身）...
-        if (enemy.img && enemy.img.complete) {
-    // 💡 アウトライン（フチ）の描画処理を追加
+      // ⭕ バグの原因になる影の処理をすべて消去し、安全な円形背景に変更します！
+if (enemy.img && enemy.img.complete) {
     const drawX = enemy.x - enemy.size / 2;
     const drawY = enemy.y - enemy.size / 2;
     
-    // 🎨 キャンバスの機能を使って白い影をフチとして描く
-    ctx.shadowColor = 'white'; // フチの色（白がおすすめ）
-    ctx.shadowBlur = 4;        // フチの太さ（2〜5くらいで調整）
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
+    // 🔴 1. 敵の背後に「半透明の黒い円」を描いて、カラフルな背景から浮かび上がらせる
+    ctx.beginPath();
+    ctx.arc(enemy.x, enemy.y, enemy.size / 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.4)"; // 黒色の透明度40%（見づらい場合は0.6などに上げてね）
+    ctx.fill();
+    
+    // 🟡 2. さらに円の周りに「白い輪郭線」をうっすらつけて視認性を上げる
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.6)"; // 白色の透明度60%
+    ctx.lineWidth = 2;
+    ctx.stroke();
 
-    // 🖼️ 敌を描画（フチがついた状態で描画されます）
+    // 🖼️ 3. その上から敵の画像をいつも通り描画する
     ctx.drawImage(enemy.img, drawX, drawY, enemy.size, enemy.size);
-
-    // 🧹 次の描画（背景など）にフチが残らないように、影の設定をリセットする
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
 }
         else {
             // 保険：画像が読み込めない時は元々の「可愛いお目々付きの丸」を描く
