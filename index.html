@@ -751,6 +751,25 @@ function selectChar(type) {
     document.getElementById('selected-char-name').innerText = charNamesJp[type];
 }
 
+    // === ここから貼り付け ===
+let currentStage = 1;
+let stageTimer = 0;
+
+const bgImg1 = new Image(); bgImg1.src = "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=800"; 
+const bgImg2 = new Image(); bgImg2.src = "https://images.unsplash.com/photo-1506318137071-a8e063b4bec0?w=800"; 
+const bgImg3 = new Image(); bgImg3.src = "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800"; 
+
+const enemyImgKedama = new Image(); enemyImgKedama.src = "https://api.iconify.design/twemoji:yawning-face.svg"; 
+const enemyImgMaid   = new Image(); enemyImgMaid.src   = "https://api.iconify.design/twemoji:angry-face.svg";   
+const enemyImgZombie = new Image(); enemyImgZombie.src = "https://api.iconify.design/twemoji:ghost.svg";        
+
+const stageSettings = {
+    1: { name: "博麗神社周辺", bg: bgImg1, enemyType: 'kedama', enemyImg: enemyImgKedama, hp: 10, spd: 1.5 },
+    2: { name: "紅魔館の霧",   bg: bgImg2, enemyType: 'maid',   enemyImg: enemyImgMaid,   hp: 25, spd: 2.3 },
+    3: { name: "地霊殿への道", bg: bgImg3, enemyType: 'zombie', enemyImg: enemyImgZombie, hp: 50, spd: 1.2 }
+};
+// === ここまで貼り付け ===
+    
 // --- ゲームシステム変数 ---
 let gameActive = false, score = 0, level = 1, exp = 0, nextExp = 5, surviveTime = 0, goldEarned = 0;
 const camera = { x: 0, y: 0 };
@@ -992,6 +1011,15 @@ function startGame() {
 function updateLoop() {
     if (!gameActive) return;
     surviveTime += 1 / 60; player.animTimer++;
+    // 💡 30秒ごとにステージを進行させる
+        stageTimer += 1 / 60; 
+        if (stageTimer > 30 && currentStage === 1) {
+            currentStage = 2;
+            createSynthSE('levelup'); 
+        } else if (stageTimer > 60 && currentStage === 2) {
+            currentStage = 3;
+            createSynthSE('levelup');
+        }
     
     if (spellCooldown > 0) { spellCooldown--; bombBtn.disabled = true; bombCdText.innerText = `${Math.ceil(spellCooldown/60)}s`; } 
     else { bombBtn.disabled = false; bombCdText.innerText = "READY"; }
@@ -1221,9 +1249,21 @@ function updateLoop() {
             } else if (surviveTime > 60 && Math.random() < 0.5) { 
                 size = 32; hp = (35 + (surviveTime * 3.0)) * difficultyCurve; speed = 1.8; color = '#fed330'; 
             }
-            enemies.push({ x: player.x + Math.cos(angle) * 600, y: player.y + Math.sin(angle) * 600, size: size, hp: hp, maxHp: hp, speed: speed, isBoss: isBoss, color: color, damageMultiplier: difficultyCurve });
-        }
+           // ⭕ 敵に現在のステージの画像をセットして追加する
+        enemies.push({ 
+            x: player.x + Math.cos(angle) * 600, 
+            y: player.y + Math.sin(angle) * 600, 
+            size: size, 
+            hp: hp, 
+            maxHp: hp, 
+            speed: speed, 
+            isBoss: isBoss, 
+            color: color, 
+            damageMultiplier: difficultyCurve,
+            img: stageSettings[currentStage].enemyImg // 💡 ここを追加しました！
+        });
     }
+}
 
     if (player.type === 'marisa' && spellActiveTimer > 0) {
         let laserHeight = 110, laserWidth = 900;
@@ -1325,11 +1365,38 @@ function updateLoop() {
 function createParticles(x, y, color, count = 3) { for (let i = 0; i < count; i++) particles.push({ x: x, y: y, vx: (Math.random() - 0.5) * 5, vy: (Math.random() - 0.5) * 5, color: color, alpha: 1 }); }
 
 function draw() {
+    // 1. 画面を綺麗にリセット
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // ⭕ 2. 【追加】現在のステージの背景画像を描画する
+    const currentBg = stageSettings[currentStage].bg;
+    if (currentBg && currentBg.complete) {
+        ctx.drawImage(currentBg, 0, 0, canvas.width, canvas.height);
+    } else {
+        // 画像が読み込まれるまでの保険（元の背景っぽい暗い色）
+        ctx.fillStyle = '#141423';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // 💡 3. 【追加】画面左上にステージ名をかっこよく表示する
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 16px sans-serif";
+    ctx.shadowColor = "rgba(0, 0, 0, 0.7)"; // 文字に影をつけて見やすくする
+    ctx.shadowBlur = 4;
+    ctx.fillText(`📍 ${stageSettings[currentStage].name} (Stage ${currentStage})`, 20, 30);
+    ctx.shadowBlur = 0; // 影の設定をリセット
+
+    // 4. 元々あったグリッド線（網目）の描画処理（咲夜の時間停止などにも連動します！）
     let bgGridColor = sakuyaTimeStopActive ? '#2c3e50' : (surviveTime > 180 ? '#4a1525' : (surviveTime > 60 ? '#192a20' : '#141423'));
-    ctx.strokeStyle = bgGridColor; ctx.lineWidth = 1; const spacing = 64;
-    for (let x = Math.floor(camera.x / spacing) * spacing; x < camera.x + canvas.width + spacing; x += spacing) { ctx.beginPath(); ctx.moveTo(x - camera.x, 0); ctx.lineTo(x - camera.x, canvas.height); ctx.stroke(); }
-    for (let y = Math.floor(camera.y / spacing) * spacing; y < camera.y + canvas.height + spacing; y += spacing) { ctx.beginPath(); ctx.moveTo(0, y - camera.y); ctx.lineTo(canvas.width, y - camera.y); ctx.stroke(); }
+    ctx.strokeStyle = bgGridColor; 
+    ctx.lineWidth = 1; 
+    const spacing = 64;
+    for (let x = Math.floor(camera.x / spacing) * spacing; x < camera.x + canvas.width + spacing; x += spacing) { 
+        ctx.beginPath(); ctx.moveTo(x - camera.x, 0); ctx.lineTo(x - camera.x, canvas.height); ctx.stroke(); 
+    }
+    for (let y = Math.floor(camera.y / spacing) * spacing; y < camera.y + canvas.height + spacing; y += spacing) { 
+        ctx.beginPath(); ctx.moveTo(0, y - camera.y); ctx.lineTo(canvas.width, y - camera.y); ctx.stroke(); 
+    }
 
     if (player.type === 'reimu' && personalSkillLevel > 0 && reimuBarrierHp > 0) {
         ctx.save(); let bRadius = personalSkillLevel === 1 ? 80 : 130;
@@ -1410,11 +1477,32 @@ function draw() {
     }
     
     enemies.forEach(enemy => { 
-        ctx.save(); ctx.translate(enemy.x - camera.x, enemy.y - camera.y); 
-        ctx.fillStyle = sakuyaTimeStopActive ? '#555' : enemy.color; ctx.beginPath(); ctx.arc(0, 0, enemy.size/2, 0, Math.PI*2); ctx.fill(); 
-        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-enemy.size*0.15, -1, 3, 0, Math.PI*2); ctx.arc(enemy.size*0.15, -1, 3, 0, Math.PI*2); ctx.fill(); ctx.restore(); 
-    });
+        ctx.save(); 
+        ctx.translate(enemy.x - camera.x, enemy.y - camera.y); 
+        
+        // 💡 咲夜の時間停止中は敵の画像の色を白黒（グレースケール）にする
+        if (sakuyaTimeStopActive) {
+            ctx.filter = "grayscale(100%) brightness(60%)";
+        }
 
+        if (enemy.img && enemy.img.complete) {
+            // ⭕ 画像の描画（中心がズレないように座標を調整して描きます）
+            ctx.drawImage(enemy.img, -enemy.size/2, -enemy.size/2, enemy.size, enemy.size);
+        } else {
+            // 保険：画像が読み込めない時は元々の「可愛いお目々付きの丸」を描く
+            ctx.fillStyle = sakuyaTimeStopActive ? '#555' : enemy.color; 
+            ctx.beginPath(); ctx.arc(0, 0, enemy.size/2, 0, Math.PI*2); ctx.fill(); 
+            ctx.fillStyle = '#fff'; 
+            ctx.beginPath(); 
+            ctx.arc(-enemy.size*0.15, -1, 3, 0, Math.PI*2); 
+            ctx.arc(enemy.size*0.15, -1, 3, 0, Math.PI*2); 
+            ctx.fill(); 
+        }
+
+        ctx.filter = "none"; // フィルターをリセット
+        ctx.restore(); 
+    });
+    
     if (player.type === 'youmu' && personalSkillLevel > 0) {
         ctx.save(); ctx.translate(youmuHalfGhost.x - camera.x, youmuHalfGhost.y - camera.y);
         ctx.fillStyle = 'rgba(245, 246, 250, 0.85)'; ctx.shadowBlur = 10; ctx.shadowColor = '#fff';
