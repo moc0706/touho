@@ -1391,12 +1391,21 @@ function draw() {
     // 1. 画面を綺麗にリセット
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // ⭕ 2. 【追加】現在のステージの背景画像を描画する
+    // 🧹 🧹 🧹 【超重要】ここに以下の3行を絶対に追加してください！ 🧹 🧹 🧹
+    // これで、ゲーム全体の「影バグ」や「透明化バグ」の呪いを毎フレーム完全に消し去ります
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1.0; 
+
+    // ⭕ 2. 現在のステージの背景画像を描画する（暗くするフィルター付き）
     const currentBg = stageSettings[currentStage].bg;
     if (currentBg && currentBg.complete) {
         ctx.drawImage(currentBg, 0, 0, canvas.width, canvas.height);
+        
+        // 背景を暗くするサングラス処理
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; 
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
     } else {
-        // 画像が読み込まれるまでの保険（元の背景っぽい暗い色）
         ctx.fillStyle = '#141423';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
