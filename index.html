@@ -441,8 +441,8 @@ charImages.jun.src = 'jun_2.png';    // 加藤純一画像指定
 let imageLoaded = { reimu: false, marisa: false, youmu: false, sakuya: false, reisen: false, gojou: false, roxy: false, jun: false };
 Object.keys(charImages).forEach(k => charImages[k].onload = () => imageLoaded[k] = true);
 
-// セーブデータ初期値
-let saveData = { gold: 0, upAtk: 0, upHp: 0, unlockedChars: ['reimu'], volBgm: 0.7, volSE: 0.7, lastPlayerName: '' };
+// セーブデータ初期値（凸データを追加）
+let saveData = { gold: 0, upAtk: 0, upHp: 0, unlockedChars: ['reimu'], volBgm: 0.7, volSE: 0.7, charTotsu: { reimu: 0, marisa: 0, youmu: 0, sakuya: 0, reisen: 0, gojou: 0, roxy: 0, jun: 0 } };
 
 // --- 🎧 オーディオエンジン ---
 let audioCtx = null;
@@ -693,12 +693,31 @@ function drawGacha() {
     const picked = pool[Math.floor(Math.random() * pool.length)];
     const resultDiv = document.getElementById('gacha-result');
 
-    if (saveData.unlockedChars.includes(picked)) {
-        saveData.gold += 100; resultDiv.style.color = "#eccc68"; resultDiv.innerText = `被り：${charNamesJp[picked]} (100🔴返還)`;
-    } else {
-        saveData.unlockedChars.push(picked); resultDiv.style.color = "#2ed573"; resultDiv.innerText = `🎉 新解放：${charNamesJp[picked]}`;
+    // 凸データの初期化漏れ対策
+    if (!saveData.charTotsu) saveData.charTotsu = { reimu: 0, marisa: 0, youmu: 0, sakuya: 0, reisen: 0, gojou: 0, roxy: 0, jun: 0 };
+    if (saveData.charTotsu[picked] === undefined) saveData.charTotsu[picked] = 0;
+
+    // まだ解放していないキャラの場合
+    if (!saveData.unlockedChars.includes(picked)) {
+        saveData.unlockedChars.push(picked); 
+        resultDiv.style.color = "#2ed573"; 
+        resultDiv.innerText = `🎉 新解放：${charNamesJp[picked]}`;
+    } 
+    // すでに解放している（被った）キャラの場合 ➔ 限界突破！
+    else {
+        if (saveData.charTotsu[picked] < 5) { // 最大5凸まで
+            saveData.charTotsu[picked] += 1;
+            resultDiv.style.color = "#2ed573";
+            resultDiv.innerText = `💥 限界突破！：${charNamesJp[picked]} ★${saveData.charTotsu[picked]}`;
+        } else {
+            // すでに5凸（最大）の場合は、今まで通り100POINT返還
+            saveData.gold += 100; 
+            resultDiv.style.color = "#eccc68"; 
+            resultDiv.innerText = `被りMAX：${charNamesJp[picked]} (100🔴返還)`;
+        }
     }
-    saveGame(); updateMenuUI();
+    saveGame(); 
+    updateMenuUI();
 }
 
 function buyPermanent(type) {
