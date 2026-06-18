@@ -203,6 +203,34 @@
             align-items: center;
             gap: 5px;
         }
+
+        /* 🏆 ランキング画面用スタイル */
+        .ranking-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .ranking-table th, .ranking-table td {
+            padding: 8px;
+            text-align: center;
+            border-bottom: 1px solid #2f3542;
+        }
+        .ranking-table th {
+            color: #ffcc00;
+            font-weight: bold;
+        }
+        .input-name {
+            background: #1e1e30;
+            border: 2px solid #ff4757;
+            color: #fff;
+            padding: 8px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 14px;
+            width: 80%;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -267,7 +295,12 @@
             </div>
 
         </div>
-        <button class="btn" style="font-size:18px; margin-top:20px; width:100%; background:#ff4757; color:#fff; box-shadow: 0 4px 15px rgba(255,71,87,0.3);" onclick="startGame()">異変解決へ向かう</button>
+        
+        <!-- 🏆 ランキング閲覧ボタンの追加 -->
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button class="btn" style="font-size:18px; flex: 2; background:#ff4757; color:#fff; box-shadow: 0 4px 15px rgba(255,71,87,0.3); margin: 0;" onclick="startGame()">異変解決へ向かう</button>
+            <button class="btn" style="font-size:18px; flex: 1; border-color: #eccc68; color: #eccc68; margin: 0;" onclick="toggleRankingModal(true)">里ランキング 🏆</button>
+        </div>
     </div>
 
     <div id="charModal" class="modal-layer">
@@ -321,6 +354,31 @@
         </div>
     </div>
 
+    <!-- 🏆 ランキング用モーダル -->
+    <div id="rankingModal" class="modal-layer">
+        <div class="menu-window" style="border-color: #eccc68; max-width: 500px;">
+            <h3 style="color:#eccc68; margin-top:0;">🏆 人間の里 スコアランキング</h3>
+            <div style="max-height: 50vh; overflow-y: auto;">
+                <table class="ranking-table">
+                    <thead>
+                        <tr>
+                            <th>順位</th>
+                            <th>名前</th>
+                            <th>使用キャラ</th>
+                            <th>生存時間</th>
+                            <th>スコア</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ranking-list">
+                        <!-- ここに通信で取得したデータが入る -->
+                        <tr><td colspan="5" style="color:#a4b0be;">霊力を集めています...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <button class="btn" style="border-color:#eccc68; color:#eccc68; width:100%; margin-top:15px;" onclick="toggleRankingModal(false)">閉じる</button>
+        </div>
+    </div>
+
     <div id="gameContainer" class="canvas-container">
         <canvas id="gameCanvas" width="960" height="580"></canvas>
         <div id="touch-overlay"></div>
@@ -348,6 +406,7 @@ const touchOverlay = document.getElementById('touch-overlay');
 const bombBtn = document.getElementById('bomb-btn');
 const bombCdText = document.getElementById('bomb-cooldown');
 const charModal = document.getElementById('charModal');
+const rankingModal = document.getElementById('rankingModal');
 
 const charNamesJp = { 
     reimu: '博麗 霊夢', 
@@ -383,7 +442,7 @@ let imageLoaded = { reimu: false, marisa: false, youmu: false, sakuya: false, re
 Object.keys(charImages).forEach(k => charImages[k].onload = () => imageLoaded[k] = true);
 
 // セーブデータ初期値
-let saveData = { gold: 0, upAtk: 0, upHp: 0, unlockedChars: ['reimu'], volBgm: 0.7, volSE: 0.7 };
+let saveData = { gold: 0, upAtk: 0, upHp: 0, unlockedChars: ['reimu'], volBgm: 0.7, volSE: 0.7, lastPlayerName: '' };
 
 // --- 🎧 オーディオエンジン ---
 let audioCtx = null;
@@ -579,6 +638,7 @@ function loadGame() {
     if (!saveData.unlockedChars) saveData.unlockedChars = ['reimu'];
     if (saveData.volBgm === undefined) saveData.volBgm = 0.7;
     if (saveData.volSE === undefined) saveData.volSE = 0.7;
+    if (saveData.lastPlayerName === undefined) saveData.lastPlayerName = '';
     
     document.getElementById('menu-slider-bgm').value = Math.round(saveData.volBgm * 100);
     document.getElementById('menu-slider-se').value = Math.round(saveData.volSE * 100);
@@ -594,6 +654,15 @@ function getCost(type, currentLv) { return (currentLv + 1) * 50; }
 function toggleCharModal(show) { 
     createSynthSE('click');
     charModal.style.display = show ? 'flex' : 'none'; 
+}
+
+// 🏆 ランキング画面の表示切り替えとデータ取得
+function toggleRankingModal(show) {
+    createSynthSE('click');
+    rankingModal.style.display = show ? 'flex' : 'none';
+    if (show) {
+        fetchOnlineRanking();
+    }
 }
 
 function updateMenuUI() {
@@ -1373,11 +1442,24 @@ function levelUp() {
     uiLayer.style.display = 'flex';
 }
 
+// 💀 ゲームオーバー画面の変更（ランキング名前入力欄の追加）
 function gameOver() {
     gameActive = false; uiTitle.innerText = "満身創痍"; saveData.gold += goldEarned; saveGame();
     createSynthSE('gameover'); 
     const min = Math.floor(surviveTime / 60); const sec = Math.floor(surviveTime % 60).toString().padStart(2, '0');
-    uiOptions.innerHTML = `<p style="margin:5px 0; font-size:16px;">リザルト</p><p style="margin:5px 0; font-size:14px;">防衛時間: ${min}分${sec}秒</p><p style="margin:5px 0; font-size:14px;">回収POINT: <span class="p-text">+${goldEarned}</span> 🔴</p>`;
+    
+    uiOptions.innerHTML = `
+        <p style="margin:5px 0; font-size:16px;">リザルト</p>
+        <p style="margin:5px 0; font-size:14px;">防衛時間: ${min}分${sec}秒</p>
+        <p style="margin:5px 0; font-size:14px;">回収POINT: <span class="p-text">+${goldEarned}</span> 🔴</p>
+        <div style="margin-top:15px; border-top: 1px solid #2f3542; padding-top:10px;">
+            <p style="margin:5px 0 10px 0; font-size:13px; color:#eccc68;">🏆 オンラインランキングに登録</p>
+            <input type="text" id="playerNameInput" class="input-name" placeholder="名前を入力（最大8文字）" maxlength="8" value="${saveData.lastPlayerName}">
+            <button id="submitScoreBtn" class="btn" style="background:#eccc68; color:#000; border:none; width:85%; margin: 0 auto 10px auto;" onclick="submitPlayerScore()">スコアを送信する</button>
+            <p id="submitStatus" style="font-size:11px; margin:4px 0; color:#2ed573;"></p>
+        </div>
+    `;
+
     const menuBtn = document.createElement('button'); menuBtn.className = 'btn'; menuBtn.innerText = '里へ戻る';
     menuBtn.onclick = () => { 
         createSynthSE('click');
@@ -1386,6 +1468,127 @@ function gameOver() {
         updateMenuUI(); 
     };
     uiOptions.appendChild(menuBtn); uiLayer.style.display = 'flex';
+}
+
+// ==========================================
+// 🌐 オンラインランキング通信処理 (Supabase/Firebase等連携用)
+// ==========================================
+
+// 1. スコアの送信
+async function submitPlayerScore() {
+    const nameInput = document.getElementById('playerNameInput');
+    const statusText = document.getElementById('submitStatus');
+    const submitBtn = document.getElementById('submitScoreBtn');
+    
+    const name = nameInput.value.trim();
+    if (!name) {
+        statusText.style.color = '#ff4757';
+        statusText.innerText = "名前を入力してください";
+        return;
+    }
+
+    createSynthSE('click');
+    submitBtn.disabled = true;
+    statusText.style.color = '#ffcc00';
+    statusText.innerText = "里に伝令を飛ばしています...";
+
+    // 次回のために名前を保存
+    saveData.lastPlayerName = name;
+    saveGame();
+
+    const min = Math.floor(surviveTime / 60);
+    const sec = Math.floor(surviveTime % 60).toString().padStart(2, '0');
+    const timeStr = `${min}:${sec}`;
+
+    // 送信するオブジェクトの定義
+    const scorePayload = {
+        name: name,
+        score: score,
+        character: charNamesJp[player.type],
+        survive_time: timeStr
+    };
+
+    try {
+        /* 
+           💡 サーバーに繋ぐ際の実装例 (fetch APIを使用する場合):
+           const response = await fetch('https://あなたのAPIエンドポイント/scores', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify(scorePayload)
+           });
+           if (!response.ok) throw new Error();
+        */
+        
+        // 疑似通信遅延 (テスト用)
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        statusText.style.color = '#2ed573';
+        statusText.innerText = "✓ 登録が完了しました！";
+        
+        // ローカルストレージ疑似ランキングにも保存（本番接続するまでのダミー挙動）
+        saveLocalDummyScore(scorePayload);
+
+    } catch (error) {
+        statusText.style.color = '#ff4757';
+        statusText.innerText = "通信に失敗しました";
+        submitBtn.disabled = false;
+    }
+}
+
+// 2. スコアの取得
+async function fetchOnlineRanking() {
+    const listBody = document.getElementById('ranking-list');
+    listBody.innerHTML = `<tr><td colspan="5" style="color:#ffcc00;">霊力を集めています...</td></tr>`;
+
+    try {
+        /* 
+           💡 サーバーから取得する際の実装例:
+           const response = await fetch('https://あなたのAPIエンドポイント/scores?limit=10');
+           const data = await response.json(); // [{name: '博麗', score: 10000, ...}, ...]
+        */
+
+        await new Promise(resolve => setTimeout(resolve, 600)); // 疑似通信遅延
+
+        // ローカルストレージまたはダミーからデータを読み込む
+        let rankingData = JSON.parse(localStorage.getItem('touhou_survivors_dummy_ranking')) || getBaseDummyRank();
+        
+        // スコア順にソート
+        rankingData.sort((a, b) => b.score - a.score);
+
+        listBody.innerHTML = "";
+        rankingData.slice(0, 10).forEach((row, index) => {
+            let rankEmoji = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `${index + 1}`;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="font-weight:bold;">${rankEmoji}</td>
+                <td style="color:#fff;">${escapeHtml(row.name)}</td>
+                <td style="color:#74b9ff; font-size:12px;">${row.character}</td>
+                <td style="color:#a4b0be;">${row.survive_time}</td>
+                <td style="color:#ffcc00; font-weight:bold;">${row.score.toLocaleString()}</td>
+            `;
+            listBody.appendChild(tr);
+        });
+
+    } catch (error) {
+        listBody.innerHTML = `<tr><td colspan="5" style="color:#ff4757;">里の情報が得られませんでした。</td></tr>`;
+    }
+}
+
+// 🛠️ 開発・検証用のダミー処理関数群
+function saveLocalDummyScore(newScore) {
+    let current = JSON.parse(localStorage.getItem('touhou_survivors_dummy_ranking')) || getBaseDummyRank();
+    current.push(newScore);
+    localStorage.setItem('touhou_survivors_dummy_ranking', JSON.stringify(current));
+}
+function getBaseDummyRank() {
+    return [
+        { name: '博麗 霊夢', score: 25000, character: '博麗 霊夢', survive_time: '5:00' },
+        { name: '霧雨 魔理沙', score: 18000, character: '霧雨 魔理沙', survive_time: '3:45' },
+        { name: '十六夜 咲夜', score: 12000, character: '十六夜 咲夜', survive_time: '2:30' }
+    ];
+}
+function escapeHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
 loadGame();
