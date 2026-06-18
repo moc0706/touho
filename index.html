@@ -683,6 +683,18 @@ function updateMenuUI() {
             document.getElementById(`badge-${c}`).style.color = "#2ed573";
         }
     });
+// === キャラクターの凸数を画面に表示する処理を追加 ===
+    if (!saveData.charTotsu) saveData.charTotsu = { reimu: 0, marisa: 0, youmu: 0, sakuya: 0, reisen: 0, gojou: 0, roxy: 0, jun: 0 };
+    ['reimu', 'marisa', 'youmu', 'sakuya', 'reisen', 'gojou', 'roxy', 'jun'].forEach(c => {
+        const tLevel = saveData.charTotsu[c] || 0;
+        const cardH4 = document.querySelector(`#char-${c} h4`);
+        if (cardH4) {
+            // 元々のキャラ名を取得（すでに★が付いていたら取り除く）
+            const baseName = charNamesJp[c];
+            // 1凸以上なら「博麗 霊夢 ★2」、未凸ならそのまま表示
+            cardH4.innerText = tLevel > 0 ? `${baseName} ★${tLevel}` : baseName;
+        }
+    });
 }
 
 function drawGacha() {
@@ -705,7 +717,7 @@ function drawGacha() {
     } 
     // すでに解放している（被った）キャラの場合 ➔ 限界突破！
     else {
-        if (saveData.charTotsu[picked] < 5) { // 最大5凸まで
+        if (saveData.charTotsu[picked] < 10) { // 最大5凸まで
             saveData.charTotsu[picked] += 1;
             resultDiv.style.color = "#2ed573";
             resultDiv.innerText = `💥 限界突破！：${charNamesJp[picked]} ★${saveData.charTotsu[picked]}`;
@@ -970,7 +982,9 @@ function startGame() {
     sakuyaDollKnives = []; youmuHalfGhost = { x: player.x, y: player.y, angle: 0, attackCooldown: 0 };
     reimuBarrierHp = 0; reimuBarrierMaxHp = 0; reimuBarrierCooldown = 0;
     gojouMugenHp = 0; gojouMugenMaxHp = 0; gojouMugenCooldown = 0;
-
+// 💡 限界突破ボーナス（1凸につきベース攻撃力が 15% アップする）
+    const totsuLevel = (saveData.charTotsu && saveData.charTotsu[selectedCharType]) || 0;
+    player.damage = player.damage * (1.0 + totsuLevel * 0.15);
     gameActive = true; 
     updateLoop();
 }
