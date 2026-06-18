@@ -1013,10 +1013,10 @@ function updateLoop() {
     surviveTime += 1 / 60; player.animTimer++;
     // 💡 30秒ごとにステージを進行させる
         stageTimer += 1 / 60; 
-        if (stageTimer > 30 && currentStage === 1) {
+        if (stageTimer > 60 && currentStage === 1) {
             currentStage = 2;
             createSynthSE('levelup'); 
-        } else if (stageTimer > 60 && currentStage === 2) {
+        } else if (stageTimer > 120 && currentStage === 2) {
             currentStage = 3;
             createSynthSE('levelup');
         }
