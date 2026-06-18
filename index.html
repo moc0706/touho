@@ -751,7 +751,7 @@ function selectChar(type) {
     document.getElementById('selected-char-name').innerText = charNamesJp[type];
 }
 
-    // === ここから貼り付け ===
+// === ここから貼り付け ===
 let currentStage = 1;
 let stageTimer = 0;
 
@@ -759,20 +759,17 @@ const bgImg1 = new Image(); bgImg1.src = "hakureishrine.png";
 const bgImg2 = new Image(); bgImg2.src = "koumakan.png"; 
 const bgImg3 = new Image(); bgImg3.src = "tireiden.png"; 
 
+// 🖼️ 登場する4種類の敵画像をここで一括定義
 const enemyImgKedama = new Image(); enemyImgKedama.src = "kedama.gif"; 
-const enemyImgFairy1 = new Image(); 
-enemyImgFairy1.src = "yousei3.gif";  // 👈 1：青い妖精
+const enemyImgFairy1 = new Image(); enemyImgFairy1.src = "yousei3.gif"; // 青い妖精
+const enemyImgFairy2 = new Image(); enemyImgFairy2.src = "yousei2.gif"; // 赤い妖精
+const enemyImgFairy3 = new Image(); enemyImgFairy3.src = "yousei.gif";  // 黄色の妖精
 
-const enemyImgFairy2 = new Image(); 
-enemyImgFairy2.src = "yousei2.gif";   // 👈 2：赤い妖精
-
-const enemyImgFairy3 = new Image(); 
-enemyImgFairy3.src = "yousei.gif"; // 👈 3：黄色の妖精
-
+// 🗺️ エラーの原因だった存在しない画像を削除し、スッキリさせました！
 const stageSettings = {
-    1: { name: "博麗神社周辺", bg: bgImg1, enemyType: 'kedama', enemyImg: enemyImgKedama, hp: 10, spd: 1.5 },
-    2: { name: "紅魔館の霧",   bg: bgImg2, enemyType: 'maid',   enemyImg: enemyImgMaid,   hp: 25, spd: 2.3 },
-    3: { name: "地霊殿への道", bg: bgImg3, enemyType: 'zombie', enemyImg: enemyImgZombie, hp: 50, spd: 1.2 }
+    1: { name: "博麗神社周辺", bg: bgImg1, hp: 10, spd: 1.5 },
+    2: { name: "紅魔館の霧",   bg: bgImg2, hp: 25, spd: 2.3 },
+    3: { name: "地霊殿への道", bg: bgImg3, hp: 50, spd: 1.2 }
 };
 // === ここまで貼り付け ===
     
