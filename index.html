@@ -964,7 +964,7 @@ function startGame() {
     if (window.innerHeight > window.innerWidth) { canvas.width = 580; canvas.height = 960; } 
     else { canvas.width = 960; canvas.height = 580; }
 
-    player = { x: canvas.width/2, y: canvas.height/2, size: 32, shootCooldown: 0, multishot: 1, magnetRange: 140, type: selectedCharType, animTimer: 0, lastDirX: 1, isMoving: false };
+    player = { x: canvas.width/2, y: canvas.height/2, size: 48, shootCooldown: 0, multishot: 1, magnetRange: 140, type: selectedCharType, animTimer: 0, lastDirX: 1, isMoving: false };
 
     if (selectedCharType === 'reimu') { player.maxHp = 100; player.damage = 16; player.speed = 4.3; player.attackSpeed = 1.4; }
     else if (selectedCharType === 'marisa') { player.maxHp = 85; player.damage = 22; player.speed = 5.2; player.attackSpeed = 1.8; }
