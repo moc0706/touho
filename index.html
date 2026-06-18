@@ -1509,10 +1509,26 @@ function draw() {
             ctx.filter = "grayscale(100%) brightness(60%)";
         }
 
+       // ...（敵をループで描画している中身）...
         if (enemy.img && enemy.img.complete) {
-            // ⭕ 画像の描画（中心がズレないように座標を調整して描きます）
-            ctx.drawImage(enemy.img, -enemy.size/2, -enemy.size/2, enemy.size, enemy.size);
-        } else {
+    // 💡 アウトライン（フチ）の描画処理を追加
+    const drawX = enemy.x - enemy.size / 2;
+    const drawY = enemy.y - enemy.size / 2;
+    
+    // 🎨 キャンバスの機能を使って白い影をフチとして描く
+    ctx.shadowColor = 'white'; // フチの色（白がおすすめ）
+    ctx.shadowBlur = 4;        // フチの太さ（2〜5くらいで調整）
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+
+    // 🖼️ 敌を描画（フチがついた状態で描画されます）
+    ctx.drawImage(enemy.img, drawX, drawY, enemy.size, enemy.size);
+
+    // 🧹 次の描画（背景など）にフチが残らないように、影の設定をリセットする
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+}
+        else {
             // 保険：画像が読み込めない時は元々の「可愛いお目々付きの丸」を描く
             ctx.fillStyle = sakuyaTimeStopActive ? '#555' : enemy.color; 
             ctx.beginPath(); ctx.arc(0, 0, enemy.size/2, 0, Math.PI*2); ctx.fill(); 
